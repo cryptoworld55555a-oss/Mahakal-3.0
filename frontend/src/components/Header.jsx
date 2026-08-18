@@ -42,7 +42,7 @@ export default function Header() {
       <header className="flex flex-col gap-4 px-4 pt-6">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="h-11 w-11 overflow-hidden rounded-full ring-1 ring-[#2F6BFF]/50 shadow-[0_0_14px_rgba(47,107,255,0.35)]">
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-[#2F6BFF]/50 shadow-[0_0_14px_rgba(47,107,255,0.35)]">
               <img src={LOGO_URL} alt="TITAN" className="h-full w-full object-cover" />
             </div>
             <div className="leading-tight">
@@ -59,12 +59,12 @@ export default function Header() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {isConnected ? (
               <button
                 data-testid="wallet-address-btn"
                 onClick={copyAddr}
-                className="flex items-center gap-2 rounded-full border border-[#2F6BFF]/30 bg-[#2F6BFF]/10 px-3 py-2 text-xs font-semibold text-white/90 active:scale-95"
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#2F6BFF]/30 bg-[#2F6BFF]/10 px-2.5 py-2 text-[11px] font-semibold text-white/90 active:scale-95"
               >
                 {short(address)}
                 {copied ? (
@@ -87,7 +87,7 @@ export default function Header() {
               <button
                 data-testid="header-bell"
                 onClick={() => toast("No new notifications")}
-                className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 active:scale-95"
+                className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 active:scale-95"
               >
                 <Bell size={18} />
                 <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#4F8DFF]" />
@@ -98,7 +98,7 @@ export default function Header() {
               <button
                 data-testid="header-menu"
                 onClick={() => setMenuOpen((v) => !v)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 active:scale-95"
               >
                 <Menu size={18} />
               </button>

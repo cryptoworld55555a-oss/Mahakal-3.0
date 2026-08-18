@@ -37,8 +37,14 @@ Mobile-first DeFi dApp on BNB Smart Chain. Users activate an ID with USDT (min $
 - Module 4: Referral, Level income, My Team, Rank
 - Module 5: Mining + Claim (PancakeSwap buy-and-send) + Profile
 
+## Implemented — 2026-08-19 (Full reference dashboard, demo data)
+- Expanded Dashboard to match user's reference video (electric-blue, TITAN logo, TTN): WelcomeStatus (UID, Active/Inactive, 1 TTN = $10 + sparkline, logo), Referral link + Copy, **Global Business** (Daily/Weekly/Monthly pools: amount, Qualified IDs, Sharing, countdown, eligibility pill), **My Business** (Stake, Mining cap + Generated reward + Mine, TTN Holding + Sell + mined/current/appreciation, Total Profit donut w/ 5 sources), **Team Reward** (Direct/Level), Mining Contract on-chain link, Recent Activity table, Top TTN Holders (search + pagination), bottom nav with raised center TITAN logo. Every card has a `.card-glow` blue underglow.
+- Backend: /api/dashboard/stats now returns price_usd + price_spark + pool_meta (qualified_ids/sharing); new /api/me/{address} (per-user business/profit/team/activity demo data) and /api/holders (200 deterministic mock holders, search + paginated, page_size clamped 1..100).
+- Recharts used for sparkline + profit donut.
+- Tested: backend 42/42 pytest; frontend 100% functional (iteration_5); cosmetic 360px header/pool overflow fixed (horizontal overflow = 0). Demo ledger reset to clean defaults.
+
 ## Notes
-- **Theme (2026-08-18):** Re-skinned to electric-blue on near-black (#05080F) per user's reference screenshot; name stays TITAN with "DeFi Platform" subtitle; Total Token Supply hero shows a 3D blue coin (generated asset, mix-blend-screen). Header adds bell + menu dropdown (copy address / disconnect); address pill copies on click. Verified 360/390/430px, no horizontal scroll (iteration_4: 11/11 flows pass).
+- Everything in My Business / Team / Holders / price is DEMO/MOCK (per-user metrics mostly 0 for new users). Real staking/mining/referral/pool/holder logic + on-chain reads come in Modules 3–5.
 - Activation is DEMO/OFF-CHAIN: backend simulates USDT deposit and mutates a seeded MongoDB ledger (no real chain / no real USDT). Dashboard balances are seeded mock values (config-driven).
 - WalletConnect live path disabled until REACT_APP_WC_PROJECT_ID is provided; Demo Wallet + MetaMask work now.
 - Tokenomics split on activation is a placeholder (creator 20%, each pool 15%, community 15%); confirm final split before on-chain.

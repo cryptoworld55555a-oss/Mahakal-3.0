@@ -299,13 +299,14 @@ class TestActivation:
         assert r.status_code == 200, r.text
         assert float(r.json()["total_deposited"]) == 1000000.0
 
-    def test_repeat_activation_accumulates_deposit_keeps_activated_at(self, client):
+    def test_repeat_activation_is_idempotent(self, client):
+        """Server design (server.py): an already-Active ID is NOT re-charged in demo mode."""
         addr = authed_wallet(client)
         first = client.post(f"{API}/activate", json={"address": addr, "amount": 10}, timeout=30).json()
         second = client.post(f"{API}/activate", json={"address": addr, "amount": 25}, timeout=30)
         assert second.status_code == 200, second.text
         d = second.json()
-        assert float(d["total_deposited"]) == 35.0
+        assert float(d["total_deposited"]) == 10.0
         assert d["activated_at"] == first["activated_at"]
 
     def test_activate_checksummed_address(self, client):
@@ -329,5 +330,140 @@ class TestActivation:
     def test_negative_amount_rejected(self, client):
         addr = authed_wallet(client)
         r = client.post(f"{API}/activate", json={"address": addr, "amount": -100}, timeout=30)
-        assert r.status_code == 400, r.text
+        assert r.status_code in (400, 422), r.text  # Pydantic gt=0 -> 422
         assert client.get(f"{API}/user/{addr}", timeout=30).json()["is_active"] is False
+
+
+# ---------------- Module 3: dashboard price + pool_meta ----------------
+class TestStatsPriceAndPoolMeta:
+    def test_price_fields(self, client):
+        d = client.get(f"{API}/dashboard/stats", timeout=30).json()
+        assert d["price_usd"] == 10.0, d["price_usd"]
+        spark = d["price_spark"]
+        assert isinstance(spark, list) and len(spark) == 12, spark
+        assert all(isinstance(v, (int, float)) for v in spark)
+
+    def test_pool_meta_shape_and_math(self, client):
+        d = client.get(f"{API}/dashboard/stats", timeout=30).json()
+        meta = d["pool_meta"]
+        for k, pool_key in [("daily", "daily_usdt"), ("weekly", "weekly_usdt"), ("monthly", "monthly_usdt")]:
+            m = meta[k]
+            assert isinstance(m["qualified_ids"], int) and m["qualified_ids"] >= 1, m
+            expected = round(d["pools"][pool_key] / m["qualified_ids"], 2)
+            assert abs(m["sharing_usdt"] - expected) < 0.02, (k, m, expected)
+
+
+# ---------------- Module 3: GET /api/me/{address} ----------------
+class TestMe:
+    def test_me_unknown_404(self, client):
+        _, addr = new_wallet()
+        r = client.get(f"{API}/me/{addr}", timeout=30)
+        assert r.status_code == 404, r.text
+
+    def test_me_inactive_shape(self, client):
+        addr = authed_wallet(client)
+        r = client.get(f"{API}/me/{addr}", timeout=30)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert "_id" not in d
+        assert d["uid"].startswith("TTN")
+        assert d["status"] == "Inactive" and d["is_active"] is False
+        assert d["referral_code"] == d["uid"]
+        assert d["stake_usdt"] == 0.0
+        mining = d["mining"]
+        for k in ["available_cap_usdt", "generated_reward_usdt", "requires_usdt"]:
+            assert k in mining, mining
+        holding = d["holding"]
+        for k in ["ttn", "mined_value_usdt", "current_value_usdt", "appreciation_usdt"]:
+            assert k in holding, holding
+        assert d["total_profit_usdt"] == 0.0
+        ps = d["profit_sources"]
+        assert len(ps) == 5
+        assert [p["label"] for p in ps] == ["Generation", "Appreciation", "Direct", "Level", "Owner Club"]
+        for p in ps:
+            assert p["color"].startswith("#") and isinstance(p["value"], (int, float))
+        assert set(d["team"]) == {"direct_reward_usdt", "level_reward_usdt"}
+        acts = d["recent_activity"]
+        assert len(acts) == 1 and acts[0]["label"] == "Registration"
+        assert acts[0]["hash"].startswith("0x") and acts[0]["amount"] == "-"
+        assert len(acts[0]["date"]) == 10
+
+    def test_me_active_prepends_activation(self, client):
+        addr = authed_wallet(client)
+        assert client.post(f"{API}/activate", json={"address": addr, "amount": 25}, timeout=30).status_code == 200
+        d = client.get(f"{API}/me/{addr}", timeout=30).json()
+        assert d["status"] == "Active" and d["is_active"] is True
+        acts = d["recent_activity"]
+        assert len(acts) == 2, acts
+        assert acts[0]["label"] == "Activation"
+        assert acts[0]["amount"] in ("$25.0", "$25", "$25.00"), acts[0]["amount"]
+        assert acts[1]["label"] == "Registration"
+
+    def test_me_checksummed_address(self, client):
+        acct, addr = new_wallet()
+        nonce = client.get(f"{API}/auth/nonce", params={"address": addr}, timeout=30).json()["nonce"]
+        msg = siwe_message(addr, nonce)
+        assert client.post(f"{API}/auth/verify", json={"address": addr, "signature": sign(acct, msg), "message": msg}, timeout=30).status_code == 200
+        r = client.get(f"{API}/me/{acct.address}", timeout=30)
+        assert r.status_code == 200, r.text
+        assert r.json()["address"] == addr
+
+    def test_me_hash_deterministic(self, client):
+        addr = authed_wallet(client)
+        h1 = client.get(f"{API}/me/{addr}", timeout=30).json()["recent_activity"][0]["hash"]
+        h2 = client.get(f"{API}/me/{addr}", timeout=30).json()["recent_activity"][0]["hash"]
+        assert h1 == h2
+
+
+# ---------------- Module 3: GET /api/holders ----------------
+class TestHolders:
+    def test_default_page(self, client):
+        r = client.get(f"{API}/holders", timeout=30)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["total"] == 200
+        assert d["page"] == 1
+        assert d["page_size"] == 25
+        assert d["pages"] == 8
+        hs = d["holders"]
+        assert len(hs) == 25
+        assert [h["rank"] for h in hs] == list(range(1, 26))
+        ttns = [h["ttn"] for h in hs]
+        assert ttns == sorted(ttns, reverse=True), ttns
+        for h in hs:
+            assert h["address"].startswith("0x")
+
+    def test_pagination_next_page_ranks(self, client):
+        d = client.get(f"{API}/holders", params={"page": 2}, timeout=30).json()
+        assert d["page"] == 2
+        assert d["holders"][0]["rank"] == 26
+        assert len(d["holders"]) == 25
+
+    def test_page_clamping(self, client):
+        hi = client.get(f"{API}/holders", params={"page": 999}, timeout=30).json()
+        assert hi["page"] == hi["pages"] == 8
+        assert hi["holders"][0]["rank"] == 176
+        lo = client.get(f"{API}/holders", params={"page": 0}, timeout=30).json()
+        assert lo["page"] == 1
+        neg = client.get(f"{API}/holders", params={"page": -5}, timeout=30).json()
+        assert neg["page"] == 1
+
+    def test_page_size_custom(self, client):
+        d = client.get(f"{API}/holders", params={"page_size": 10}, timeout=30).json()
+        assert d["page_size"] == 10 and len(d["holders"]) == 10 and d["pages"] == 20
+
+    def test_search_filters(self, client):
+        first = client.get(f"{API}/holders", timeout=30).json()["holders"][0]["address"]
+        frag = first[2:6]
+        d = client.get(f"{API}/holders", params={"search": frag}, timeout=30).json()
+        assert d["total"] >= 1 and d["total"] < 200
+        assert all(frag.lower() in h["address"].lower() for h in d["holders"])
+
+    def test_search_no_match(self, client):
+        d = client.get(f"{API}/holders", params={"search": "zzzzzzzz"}, timeout=30).json()
+        assert d["total"] == 0 and d["pages"] == 1 and d["holders"] == []
+
+    def test_holders_stable_across_calls(self, client):
+        a = client.get(f"{API}/holders", timeout=30).json()["holders"]
+        b = client.get(f"{API}/holders", timeout=30).json()["holders"]
+        assert a == b

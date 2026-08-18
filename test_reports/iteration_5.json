@@ -1,0 +1,38 @@
+{
+  "summary": "Full backend + frontend test of the expanded TITAN demo dashboard (Module 3). Backend: extended /app/backend/tests/backend_test.py with 3 new suites (stats price/pool_meta, /api/me/{address}, /api/holders) — 42/42 pytest tests pass. Frontend (mobile 360/390/430): demo-wallet SIWE connect, all dashboard sections & testids present and in the correct order, $10.00 price + sparkline, referral copy toast, Global Business pools with eligibility pills + countdowns, My Business (stake/mining/holding/total-profit donut with 5 legend rows), Team Reward, on-chain link, Recent Activity, Top Holders search + pagination, stake/mine/sell 'coming in the next module' toasts, activation regression (min-$10 toast, $50 activation flips status to Active, eligibility -> Eligible, Activation row added), bottom nav Coming Soon panels + return to dashboard. Only 2 cosmetic layout defects found; no functional failures.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/activate", "issue": "Negative amount returns 422 (Pydantic gt=0) instead of the 400 + friendly 'Minimum activation is $10 USDT' message; also a repeat activation on an already-Active ID silently returns 200 without adding the new deposit (by-design idempotency, but the client gets no signal that nothing was charged). Stale expectations in the prior test file were updated to match current behaviour."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Header", "issue": "At 360px viewport the header control row overflows the app frame: header-bell ends at x=332 and header-menu spans 340-380 vs viewport 360, so ~20px of the hamburger is clipped by overflow-x-hidden (still clickable, dropdown works). Also the wallet address pill text wraps to 2 lines inside the pill.", "selector": "[data-testid=\"header-menu\"]", "priority": "MEDIUM"},
+      {"component": "GlobalBusiness PoolCard", "issue": "'Not eligible'/'Eligible' pill right edge (x=180) extends ~6px past its card right edge (x=174) at 360px; also the weekly reset countdown ('5d 04:26:14') wraps onto two lines making the daily/weekly cards unequal height.", "selector": "[data-testid=\"gb-daily-pool-eligibility\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (mobile)", "issues": ["Recharts logs repeated console warnings on first paint: 'The width(-1) and height(-1) of chart should be greater than 0' from the sparkline/donut ResponsiveContainers - set an explicit minWidth/minHeight or fixed size to silence.", "No horizontal page scroll at 360/390/430 (scrollWidth == clientWidth) - OK; all 14 cards carry .card-glow."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Header at <=360px: shrink the address pill / bell / menu (or reduce gaps) so header-menu stays inside the 360px frame and the address text stays on one line.",
+    "PoolCard: keep the eligibility pill inside card padding and prevent the weekly countdown from wrapping (min-w-0 + whitespace-nowrap / smaller text).",
+    "Optional: give the sparkline/donut ResponsiveContainers explicit minWidth/minHeight to remove the recharts width(-1) console warnings."
+  ],
+  "critical_code_review_comments": [
+    "GET /api/holders takes unbounded page_size (page_size=100000 returns all 200 and would scale badly with a real dataset) - clamp page_size (e.g. 1..100) and validate with Query(ge=1, le=100).",
+    "/api/me returns all-zero demo metrics hardcoded in the route; extract to a constant/factory so the future real implementation only swaps the data source.",
+    "server.py activate: repeat activation is silently a no-op for an Active ID - consider returning a 409 or a flag so the UI can explain it."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (42/42 pytest)", "frontend": "100% functional (all requested flows), 2 cosmetic layout defects"},
+  "seed_data_creation": "5 demo wallets created via connect-demo-btn (TTN100065-TTN100069); two of them activated ($50 and $25) plus several backend test wallets, which incremented total_activated_users and the mock pool/creator balances in Mongo.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Wallet-only; connect-demo-btn (random ethers wallet signs SIWE). Each connect creates a new Inactive UID.",
+  "context_for_next_testing_agent": "backend_test.py now covers health/config/SIWE/activation/stats(price+pool_meta)/me/holders. Two prior activation tests were corrected to match server behaviour (idempotent repeat activation; negative amount -> 422). Frontend flows verified via 4 Playwright runs; remaining open items are the 360px header overflow and the pool eligibility pill/countdown wrap.",
+  "rca_of_the_issue": "360px header overflow: Header renders address pill + bell + menu at fixed sizes with gaps that sum to >360px inside the max-w-[430px] frame; overflow-x-hidden on the App wrapper masks it into a clipped hamburger instead of a scrollbar. Pool pill overflow: the flex row holding the countdown and the pill has no min-w-0, so the countdown text pushes the pill past the card's padding box."
+}

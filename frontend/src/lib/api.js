@@ -12,5 +12,8 @@ export const verifySignature = (payload) =>
 export const getUser = (address) => api.get(`/user/${address}`).then((r) => r.data);
 export const activateId = (payload) =>
   api.post("/activate", payload).then((r) => r.data);
+export const getMe = (address) => api.get(`/me/${address}`).then((r) => r.data);
+export const getHolders = (params) =>
+  api.get("/holders", { params }).then((r) => r.data);
 
 export default api;

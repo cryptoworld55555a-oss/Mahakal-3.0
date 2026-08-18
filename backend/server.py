@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 import uuid
+import random
 from datetime import datetime, timezone, timedelta
 
 from eth_account import Account
@@ -32,6 +33,8 @@ logger = logging.getLogger(__name__)
 # ----------------------------- Config -----------------------------
 CHAIN_ID = int(os.environ.get('CHAIN_ID', '97'))
 TOTAL_SUPPLY = float(os.environ.get('TOTAL_SUPPLY', '200000'))
+TOKEN_PRICE_USD = float(os.environ.get('TOKEN_PRICE_USD', '10'))
+PRICE_SPARK = [9.12, 9.28, 9.19, 9.44, 9.61, 9.55, 9.82, 9.97, 9.9, 10.14, 10.03, 10.0]
 
 CONTRACTS = {
     "token": os.environ.get('TOKEN_ADDRESS', '0x0000000000000000000000000000000000000000'),
@@ -252,21 +255,114 @@ async def dashboard_stats():
         stats = DEFAULT_STATS
     total_users = await db.users.count_documents({})
     total_activated = await db.users.count_documents({"is_active": True})
+
+    daily = round(stats["daily_pool_usdt"], 2)
+    weekly = round(stats["weekly_pool_usdt"], 2)
+    monthly = round(stats["monthly_pool_usdt"], 2)
+    q_daily = max(1, int(total_activated))
+    q_weekly = max(1, int(total_activated * 0.5) or 1)
+    q_monthly = max(1, int(total_activated * 0.3) or 1)
+
     return {
         "creator_balance_usdt": round(stats["creator_balance_usdt"], 2),
-        "pools": {
-            "daily_usdt": round(stats["daily_pool_usdt"], 2),
-            "weekly_usdt": round(stats["weekly_pool_usdt"], 2),
-            "monthly_usdt": round(stats["monthly_pool_usdt"], 2),
+        "pools": {"daily_usdt": daily, "weekly_usdt": weekly, "monthly_usdt": monthly},
+        "pool_meta": {
+            "daily": {"qualified_ids": q_daily, "sharing_usdt": round(daily / q_daily, 2)},
+            "weekly": {"qualified_ids": q_weekly, "sharing_usdt": round(weekly / q_weekly, 2)},
+            "monthly": {"qualified_ids": q_monthly, "sharing_usdt": round(monthly / q_monthly, 2)},
         },
         "community_fund_usdt": round(stats["community_fund_usdt"], 2),
         "total_supply_ttn": stats["total_supply_ttn"],
         "total_users": total_users,
         "total_activated_users": total_activated,
         "min_activation_usdt": MIN_ACTIVATION_USDT,
+        "price_usd": TOKEN_PRICE_USD,
+        "price_spark": PRICE_SPARK,
         "resets": _pool_resets(),
         "token": TOKEN_SPEC,
     }
+
+
+def _mock_hash(seed: str) -> str:
+    r = random.Random(seed)
+    hexs = "0123456789abcdef"
+    return "0x" + "".join(r.choice(hexs) for _ in range(4)) + "…" + "".join(r.choice(hexs) for _ in range(4))
+
+
+@api_router.get("/me/{address}")
+async def me(address: str):
+    addr = address.lower()
+    doc = await db.users.find_one({"address": addr})
+    if not doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    active = doc.get("is_active", False)
+    activity = [
+        {
+            "label": "Registration",
+            "date": (doc.get("created_at") or "")[:10],
+            "amount": "-",
+            "hash": _mock_hash(addr + "reg"),
+        }
+    ]
+    if active and doc.get("activated_at"):
+        activity.insert(0, {
+            "label": "Activation",
+            "date": doc["activated_at"][:10],
+            "amount": f"${doc.get('total_deposited', 0)}",
+            "hash": _mock_hash(addr + "act"),
+        })
+
+    return {
+        "uid": doc["uid"],
+        "address": addr,
+        "is_active": active,
+        "status": "Active" if active else "Inactive",
+        "referral_code": doc["uid"],
+        "stake_usdt": 0.0,
+        "mining": {"available_cap_usdt": 0.0, "generated_reward_usdt": 0.0, "requires_usdt": 1.0},
+        "holding": {"ttn": 0.0, "mined_value_usdt": 0.0, "current_value_usdt": 0.0, "appreciation_usdt": 0.0},
+        "total_profit_usdt": 0.0,
+        "profit_sources": [
+            {"label": "Generation", "value": 0.0, "color": "#2F6BFF"},
+            {"label": "Appreciation", "value": 0.0, "color": "#4F8DFF"},
+            {"label": "Direct", "value": 0.0, "color": "#6AA0FF"},
+            {"label": "Level", "value": 0.0, "color": "#1E40AF"},
+            {"label": "Owner Club", "value": 0.0, "color": "#3B82F6"},
+        ],
+        "team": {"direct_reward_usdt": 0.0, "level_reward_usdt": 0.0},
+        "recent_activity": activity,
+    }
+
+
+def _gen_holders():
+    r = random.Random(4242)
+    hexs = "0123456789abcdef"
+    holders = []
+    val = 8.6
+    for i in range(200):
+        addr = "0x" + "".join(r.choice(hexs) for _ in range(4)) + "…" + "".join(r.choice(hexs) for _ in range(4))
+        val = max(0.01, val - r.uniform(0.01, 0.08))
+        holders.append({"address": addr, "ttn": round(val, 4)})
+    return holders
+
+
+_HOLDERS_CACHE = _gen_holders()
+
+
+@api_router.get("/holders")
+async def holders(search: str = "", page: int = 1, page_size: int = Query(25, ge=1, le=100)):
+    data = _HOLDERS_CACHE
+    if search:
+        s = search.lower()
+        data = [h for h in data if s in h["address"].lower()]
+    total = len(data)
+    pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, pages))
+    start = (page - 1) * page_size
+    sliced = data[start:start + page_size]
+    ranked = [{"rank": start + i + 1, **h} for i, h in enumerate(sliced)]
+    return {"total": total, "page": page, "pages": pages, "page_size": page_size, "holders": ranked}
 
 
 app.include_router(api_router)
