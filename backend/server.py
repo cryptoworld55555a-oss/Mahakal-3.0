@@ -86,6 +86,11 @@ class VerifyRequest(BaseModel):
     message: str
 
 
+class ActivateRequest(BaseModel):
+    address: str
+    amount: float = Field(gt=0)
+
+
 # ----------------------------- Helpers -----------------------------
 async def _next_uid() -> str:
     doc = await db.counters.find_one_and_update(
@@ -104,8 +109,21 @@ def _public_user(doc: dict) -> dict:
         "uid": doc["uid"],
         "is_active": doc.get("is_active", False),
         "activated_at": doc.get("activated_at"),
+        "total_deposited": doc.get("total_deposited", 0),
         "created_at": doc.get("created_at"),
     }
+
+
+def _pool_resets():
+    now = datetime.now(timezone.utc)
+    daily = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    days_ahead = (7 - now.weekday()) % 7 or 7
+    weekly = (now + timedelta(days=days_ahead)).replace(hour=0, minute=0, second=0, microsecond=0)
+    if now.month == 12:
+        monthly = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        monthly = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    return {"daily": daily.isoformat(), "weekly": weekly.isoformat(), "monthly": monthly.isoformat()}
 
 
 # ----------------------------- Routes -----------------------------
@@ -177,6 +195,55 @@ async def get_user(address: str):
     return _public_user(doc)
 
 
+MIN_ACTIVATION_USDT = 10.0
+
+
+@api_router.post("/activate")
+async def activate_id(body: ActivateRequest):
+    """Demo/off-chain activation: simulate a USDT deposit and flip the ID Active.
+    Real on-chain activation (MainProtocol.activate) replaces this after deploy."""
+    if body.amount < MIN_ACTIVATION_USDT:
+        raise HTTPException(status_code=400, detail="Minimum activation is $10 USDT")
+    addr = body.address.lower()
+    user = await db.users.find_one({"address": addr})
+    if not user:
+        raise HTTPException(status_code=404, detail="Connect your wallet first")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Idempotent: an already-Active ID is not re-charged in Module 1 demo mode.
+    if user.get("is_active"):
+        await db.users.update_one({"address": addr}, {"$set": {"last_seen": now}})
+        return _public_user({**user, "last_seen": now})
+
+    await db.users.update_one(
+        {"address": addr},
+        {
+            "$set": {"is_active": True, "activated_at": user.get("activated_at") or now, "last_seen": now},
+            "$inc": {"total_deposited": body.amount},
+        },
+    )
+
+    amt = body.amount
+    await db.protocol_stats.update_one(
+        {"_id": "protocol"},
+        {
+            "$inc": {
+                "creator_balance_usdt": round(amt * 0.20, 2),
+                "daily_pool_usdt": round(amt * 0.15, 2),
+                "weekly_pool_usdt": round(amt * 0.15, 2),
+                "monthly_pool_usdt": round(amt * 0.15, 2),
+                "community_fund_usdt": round(amt * 0.15, 2),
+            },
+            "$set": {"updated_at": now},
+        },
+        upsert=True,
+    )
+
+    updated = await db.users.find_one({"address": addr})
+    return _public_user(updated)
+
+
 @api_router.get("/dashboard/stats")
 async def dashboard_stats():
     stats = await db.protocol_stats.find_one({"_id": "protocol"})
@@ -186,16 +253,18 @@ async def dashboard_stats():
     total_users = await db.users.count_documents({})
     total_activated = await db.users.count_documents({"is_active": True})
     return {
-        "creator_balance_usdt": stats["creator_balance_usdt"],
+        "creator_balance_usdt": round(stats["creator_balance_usdt"], 2),
         "pools": {
-            "daily_usdt": stats["daily_pool_usdt"],
-            "weekly_usdt": stats["weekly_pool_usdt"],
-            "monthly_usdt": stats["monthly_pool_usdt"],
+            "daily_usdt": round(stats["daily_pool_usdt"], 2),
+            "weekly_usdt": round(stats["weekly_pool_usdt"], 2),
+            "monthly_usdt": round(stats["monthly_pool_usdt"], 2),
         },
-        "community_fund_usdt": stats["community_fund_usdt"],
+        "community_fund_usdt": round(stats["community_fund_usdt"], 2),
         "total_supply_ttn": stats["total_supply_ttn"],
         "total_users": total_users,
         "total_activated_users": total_activated,
+        "min_activation_usdt": MIN_ACTIVATION_USDT,
+        "resets": _pool_resets(),
         "token": TOKEN_SPEC,
     }
 

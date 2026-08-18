@@ -6,10 +6,10 @@ import BottomNav from "@/components/BottomNav";
 import ComingSoon from "@/components/ComingSoon";
 
 const modules = {
-  stake: { title: "Stake", module: "Module 2" },
-  pools: { title: "Pools", module: "Module 3" },
-  mining: { title: "Mining", module: "Module 5" },
-  team: { title: "My Team", module: "Module 4" },
+  stake: { title: "Stake", module: "Staking" },
+  pools: { title: "Pools", module: "Pool distribution" },
+  mining: { title: "Mining", module: "Mining & Claim" },
+  team: { title: "My Team", module: "Referral & Team" },
 };
 
 function App() {

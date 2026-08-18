@@ -1,4 +1,4 @@
-require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-ethers");
 require("dotenv").config();
 
 const { DEPLOYER_PRIVATE_KEY, BSCSCAN_API_KEY } = process.env;
@@ -7,7 +7,7 @@ const { DEPLOYER_PRIVATE_KEY, BSCSCAN_API_KEY } = process.env;
 module.exports = {
   solidity: {
     version: "0.8.24",
-    settings: { optimizer: { enabled: true, runs: 200 } },
+    settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: "paris" },
   },
   networks: {
     bscTestnet: {

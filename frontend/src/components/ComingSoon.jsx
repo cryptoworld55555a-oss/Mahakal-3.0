@@ -14,7 +14,7 @@ export default function ComingSoon({ title, module }) {
         {title}
       </h2>
       <p className="max-w-[260px] text-sm text-white/50">
-        Coming soon in {module}. Module 1 delivers the foundation — token, contract skeleton & dashboard.
+        {module} — landing soon. Activation is live now on the Dashboard; the rest of the protocol rolls out next.
       </p>
     </div>
   );

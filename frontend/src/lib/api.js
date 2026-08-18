@@ -10,5 +10,7 @@ export const getNonce = (address) =>
 export const verifySignature = (payload) =>
   api.post("/auth/verify", payload).then((r) => r.data);
 export const getUser = (address) => api.get(`/user/${address}`).then((r) => r.data);
+export const activateId = (payload) =>
+  api.post("/activate", payload).then((r) => r.data);
 
 export default api;

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getNonce, verifySignature, getUser } from "@/lib/api";
+import { getNonce, verifySignature, getUser, activateId as activateIdApi } from "@/lib/api";
 import {
   buildSiweMessage,
   getInjectedSigner,
@@ -71,6 +71,16 @@ export function WalletProvider({ children }) {
     toast("Wallet disconnected");
   }, []);
 
+  const activateId = useCallback(
+    async (amount) => {
+      const updated = await activateIdApi({ address, amount });
+      setUser(updated);
+      toast.success(`ID Activated · ${updated.uid}`);
+      return updated;
+    },
+    [address]
+  );
+
   const value = {
     address,
     user,
@@ -78,6 +88,7 @@ export function WalletProvider({ children }) {
     isConnected: Boolean(address),
     connect,
     disconnect,
+    activateId,
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

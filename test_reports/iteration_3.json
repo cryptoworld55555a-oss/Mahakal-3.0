@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 3 (activation flow + pool countdowns) tested end-to-end. Backend: 28/28 pytest cases pass (health, config, SIWE auth, user, dashboard stats incl. new min_activation_usdt + resets, and new POST /api/activate happy path, min guard, unknown address, exact-min, no-upper-cap, repeat activation, checksummed address, 422 validation). Frontend (390px mobile): demo-wallet SIWE connect -> Activate card appears at top with Inactive badge; amount 5 shows 'Minimum activation is $10 USDT' toast and does NOT activate; quick-100 + activate flips badge to Active, hides Activate card, and refreshes stats (activated users 5->6, creator $212,531->$212,551 = +20 of 100, daily pool +15); all three pool countdowns render and tick each second, Community Fund has none; bottom nav Stake/Pools/Mining/My Team show Coming Soon and Dashboard tab returns; Active status + session persist after reload; WalletConnect button correctly disabled.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/activate", "issue": "No idempotency/state guard: an already-Active user can call activate repeatedly, each call re-incrementing creator/pool/community balances and total_deposited. If re-deposit is intended this is fine; otherwise add an is_active check or a separate deposit endpoint."},
+      {"endpoint": "POST /api/activate", "issue": "amount has no Pydantic constraint (e.g. gt=0); negative values are handled only by the min-check message ('Minimum activation is $10 USDT'), which is a misleading error for -100. Consider Field(gt=0) + explicit message."},
+      {"endpoint": "GET /api/dashboard/stats", "issue": "Seeded mock ledger is mutated permanently by activations (creator balance now ~$212.5k vs seed $12.5k after test deposits). No reset endpoint; any test asserting exact seed values will fail. Tests were made delta-based."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Coming Soon (Stake/Pools/Mining/My Team)", "issues": ["Stale copy: Stake still says 'Coming soon in Module 2' although Module 2 (activation) is now shipped; body text still says 'Module 1 delivers the foundation'. Update module mapping/copy."]},
+      {"screen": "Pool cards countdown", "issues": ["Countdown text is 11px text-white/45 on #0A0D1C — borderline low contrast for a live/important value; consider text-white/60.", "When a target time elapses, Countdown falls back to '--:--:--' and never refetches new reset timestamps/pool values until reload; consider re-calling stats when the timer hits zero."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Decide/implement activation idempotency for already-Active users on POST /api/activate",
+    "Add Pydantic amount validation (gt=0) with a distinct error for non-positive amounts",
+    "Update ComingSoon module labels/copy (Stake no longer 'Module 2', drop 'Module 1 delivers the foundation')",
+    "Optional: auto-refresh dashboard stats/resets when a countdown reaches zero; slightly raise countdown text contrast"
+  ],
+  "critical_code_review_comments": [
+    "server.py /activate mixes deposit accounting with activation; splits total only 80% (20+15*4) with no record of the remaining 20% — verify the tokenomics split is intentional and document/persist per-deposit ledger entries for auditability.",
+    "No per-address deposit history is stored (only total_deposited), which will make the later on-chain reconciliation and My Team/rewards modules hard; consider a deposits collection.",
+    "_pool_resets() is computed per request; fine, but frontend keeps a stale target after midnight (see design issue)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (28/28)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Several throwaway SIWE demo wallets/users created by backend tests and one browser demo wallet (TTN100026, activated with $100). protocol_stats balances increased accordingly.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Wallet-based only; connect-demo-btn creates a fresh random wallet each time (always Inactive).",
+  "context_for_next_testing_agent": "backend_test.py now uses delta/>= assertions for protocol_stats because activation permanently mutates the seeded ledger; do not reintroduce exact seed-value assertions. Activation tests are in TestActivation; helper authed_wallet(client) creates a SIWE-verified user. Frontend: after connecting via connect-demo-btn the user is always Inactive so activate-card is present.",
+  "rca_of_the_issue": "No blocking defect found this iteration; the only functional gaps are the missing already-active guard and non-positive amount validation on POST /api/activate."
+}

@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Crown, Coins, Users, CalendarDays, CalendarRange, CalendarClock, HeartHandshake } from "lucide-react";
 import { getDashboardStats } from "@/lib/api";
+import { useWallet } from "@/context/WalletContext";
+import ActivateCard from "@/components/ActivateCard";
+import Countdown from "@/components/Countdown";
 
 const usd = (n) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n || 0);
@@ -12,7 +15,7 @@ const fade = {
   show: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, ease: [0.16, 1, 0.3, 1] } }),
 };
 
-function PoolCard({ testid, icon: Icon, label, amount, accent, index }) {
+function PoolCard({ testid, icon: Icon, label, amount, accent, index, reset, resetTestid, onExpire }) {
   return (
     <motion.div
       data-testid={testid}
@@ -29,20 +32,35 @@ function PoolCard({ testid, icon: Icon, label, amount, accent, index }) {
         <Icon size={16} style={{ color: accent }} />
       </div>
       <span className="text-lg font-bold text-white">${usd(amount)}</span>
-      <span className="text-[11px] text-white/40">USDT</span>
+      {reset !== undefined ? (
+        <span className="flex items-center gap-1 text-[11px] text-white/40">
+          <span>resets in</span>
+          <Countdown target={reset} testid={resetTestid} onExpire={onExpire} />
+        </span>
+      ) : (
+        <span className="text-[11px] text-white/40">USDT</span>
+      )}
     </motion.div>
   );
 }
 
 export default function Dashboard() {
+  const { isConnected, user } = useWallet();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     getDashboardStats()
-      .then(setStats)
+      .then((d) => {
+        setStats(d);
+        setError(false);
+      })
       .catch(() => setError(true));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (error) {
     return (
@@ -52,8 +70,14 @@ export default function Dashboard() {
     );
   }
 
+  const showActivate = isConnected && user && !user.is_active;
+
   return (
-    <div className="flex flex-col gap-5 px-4 pt-5">
+    <div data-testid="dashboard" className="flex flex-col gap-5 px-4 pt-5">
+      {showActivate && (
+        <ActivateCard min={stats?.min_activation_usdt || 10} onActivated={load} />
+      )}
+
       {/* Hero: Creator balance + Total supply */}
       <div className="grid grid-cols-1 gap-4">
         <motion.div
@@ -111,9 +135,9 @@ export default function Dashboard() {
       <div>
         <h2 className="mb-3 px-1 text-sm font-semibold text-white/70">Reward Pools</h2>
         <div className="grid grid-cols-2 gap-3">
-          <PoolCard testid="daily-pool-card" icon={CalendarDays} label="Daily Pool" amount={stats?.pools?.daily_usdt} accent="#00E5FF" index={2} />
-          <PoolCard testid="weekly-pool-card" icon={CalendarRange} label="Weekly Pool" amount={stats?.pools?.weekly_usdt} accent="#9D4EDD" index={3} />
-          <PoolCard testid="monthly-pool-card" icon={CalendarClock} label="Monthly Pool" amount={stats?.pools?.monthly_usdt} accent="#D4AF37" index={4} />
+          <PoolCard testid="daily-pool-card" icon={CalendarDays} label="Daily Pool" amount={stats?.pools?.daily_usdt} accent="#00E5FF" index={2} reset={stats?.resets?.daily} resetTestid="daily-pool-countdown" onExpire={load} />
+          <PoolCard testid="weekly-pool-card" icon={CalendarRange} label="Weekly Pool" amount={stats?.pools?.weekly_usdt} accent="#9D4EDD" index={3} reset={stats?.resets?.weekly} resetTestid="weekly-pool-countdown" onExpire={load} />
+          <PoolCard testid="monthly-pool-card" icon={CalendarClock} label="Monthly Pool" amount={stats?.pools?.monthly_usdt} accent="#D4AF37" index={4} reset={stats?.resets?.monthly} resetTestid="monthly-pool-countdown" onExpire={load} />
           <PoolCard testid="community-fund-card" icon={HeartHandshake} label="Community Fund" amount={stats?.community_fund_usdt} accent="#00E5FF" index={5} />
         </div>
       </div>

@@ -1,6 +1,6 @@
 """TITAN (TTN) Module 1 backend tests: health, config, SIWE auth, user, dashboard stats."""
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import requests
@@ -77,14 +77,37 @@ class TestDashboardStats:
         r = client.get(f"{API}/dashboard/stats", timeout=30)
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d["creator_balance_usdt"] == 12500.0
-        assert d["pools"]["daily_usdt"] == 3200.0
-        assert d["pools"]["weekly_usdt"] == 8750.0
-        assert d["pools"]["monthly_usdt"] == 21400.0
-        assert d["community_fund_usdt"] == 45000.0
+        # seeded baselines (activation tests only increase these)
+        assert d["creator_balance_usdt"] >= 12500.0
+        assert d["pools"]["daily_usdt"] >= 3200.0
+        assert d["pools"]["weekly_usdt"] >= 8750.0
+        assert d["pools"]["monthly_usdt"] >= 21400.0
+        assert d["community_fund_usdt"] >= 45000.0
         assert float(d["total_supply_ttn"]) == 200000.0
         assert isinstance(d["total_users"], int)
-        assert d["total_activated_users"] == 0
+        assert isinstance(d["total_activated_users"], int)
+
+    # Module 2: min_activation + reset timestamps
+    def test_stats_includes_min_activation_and_resets(self, client):
+        d = client.get(f"{API}/dashboard/stats", timeout=30).json()
+        assert d["min_activation_usdt"] == 10
+        resets = d["resets"]
+        now = datetime.now(timezone.utc)
+        daily = datetime.fromisoformat(resets["daily"])
+        weekly = datetime.fromisoformat(resets["weekly"])
+        monthly = datetime.fromisoformat(resets["monthly"])
+        for label, ts in [("daily", daily), ("weekly", weekly), ("monthly", monthly)]:
+            assert ts.tzinfo is not None, f"{label} reset missing tz"
+            assert ts > now, f"{label} reset in the past: {ts}"
+            assert (ts.hour, ts.minute, ts.second) == (0, 0, 0), f"{label} not midnight"
+        # next UTC midnight
+        assert daily.date() == (now + timedelta(days=1)).date()
+        # next Monday
+        assert weekly.weekday() == 0, f"weekly reset not Monday: {weekly}"
+        assert 0 < (weekly - now).days + 1 <= 7
+        # first of next month
+        assert monthly.day == 1
+        assert (monthly.year, monthly.month) == ((now.year + 1, 1) if now.month == 12 else (now.year, now.month + 1))
 
     def test_total_users_increments_on_new_wallet(self, client):
         before = client.get(f"{API}/dashboard/stats", timeout=30).json()["total_users"]
@@ -96,7 +119,6 @@ class TestDashboardStats:
         after = client.get(f"{API}/dashboard/stats", timeout=30).json()
         # >= because other tests may create wallets concurrently (pytest-xdist)
         assert after["total_users"] >= before + 1
-        assert after["total_activated_users"] == 0
 
 
 # ---------------- SIWE auth ----------------
@@ -209,3 +231,103 @@ class TestSiweAuth:
         _, addr = new_wallet()
         r = client.get(f"{API}/user/{addr}", timeout=30)
         assert r.status_code == 404
+
+
+# ---------------- Module 2: Activation (POST /api/activate) ----------------
+def authed_wallet(client):
+    """Create a real SIWE-authenticated user and return its lowercase address."""
+    acct, addr = new_wallet()
+    nonce = client.get(f"{API}/auth/nonce", params={"address": addr}, timeout=30).json()["nonce"]
+    msg = siwe_message(addr, nonce)
+    r = client.post(f"{API}/auth/verify", json={"address": addr, "signature": sign(acct, msg), "message": msg}, timeout=30)
+    assert r.status_code == 200, r.text
+    assert r.json()["is_active"] is False
+    return addr
+
+
+class TestActivation:
+    def test_below_minimum_rejected(self, client):
+        addr = authed_wallet(client)
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": 5}, timeout=30)
+        assert r.status_code == 400, r.text
+        assert r.json()["detail"] == "Minimum activation is $10 USDT"
+        # still inactive
+        assert client.get(f"{API}/user/{addr}", timeout=30).json()["is_active"] is False
+
+    def test_unknown_address_404(self, client):
+        _, addr = new_wallet()
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": 50}, timeout=30)
+        assert r.status_code == 404, r.text
+        assert r.json()["detail"] == "Connect your wallet first"
+
+    def test_activate_success_updates_user_and_stats(self, client):
+        addr = authed_wallet(client)
+        before = client.get(f"{API}/dashboard/stats", timeout=30).json()
+        amount = 100.0
+
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": amount}, timeout=30)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["address"] == addr
+        assert d["is_active"] is True
+        assert d["activated_at"] is not None
+        assert float(d["total_deposited"]) == amount
+        assert "_id" not in d
+
+        # persisted
+        g = client.get(f"{API}/user/{addr}", timeout=30).json()
+        assert g["is_active"] is True
+        assert float(g["total_deposited"]) == amount
+
+        after = client.get(f"{API}/dashboard/stats", timeout=30).json()
+        assert after["total_activated_users"] >= before["total_activated_users"] + 1
+        assert round(after["creator_balance_usdt"] - before["creator_balance_usdt"], 2) >= round(amount * 0.20, 2)
+        for key in ["daily_usdt", "weekly_usdt", "monthly_usdt"]:
+            assert round(after["pools"][key] - before["pools"][key], 2) >= round(amount * 0.15, 2)
+        assert round(after["community_fund_usdt"] - before["community_fund_usdt"], 2) >= round(amount * 0.15, 2)
+
+    def test_exact_minimum_accepted(self, client):
+        addr = authed_wallet(client)
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": 10}, timeout=30)
+        assert r.status_code == 200, r.text
+        assert r.json()["is_active"] is True
+        assert float(r.json()["total_deposited"]) == 10.0
+
+    def test_no_upper_cap(self, client):
+        addr = authed_wallet(client)
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": 1000000}, timeout=30)
+        assert r.status_code == 200, r.text
+        assert float(r.json()["total_deposited"]) == 1000000.0
+
+    def test_repeat_activation_accumulates_deposit_keeps_activated_at(self, client):
+        addr = authed_wallet(client)
+        first = client.post(f"{API}/activate", json={"address": addr, "amount": 10}, timeout=30).json()
+        second = client.post(f"{API}/activate", json={"address": addr, "amount": 25}, timeout=30)
+        assert second.status_code == 200, second.text
+        d = second.json()
+        assert float(d["total_deposited"]) == 35.0
+        assert d["activated_at"] == first["activated_at"]
+
+    def test_activate_checksummed_address(self, client):
+        acct, addr = new_wallet()
+        nonce = client.get(f"{API}/auth/nonce", params={"address": addr}, timeout=30).json()["nonce"]
+        msg = siwe_message(addr, nonce)
+        assert client.post(f"{API}/auth/verify", json={"address": addr, "signature": sign(acct, msg), "message": msg}, timeout=30).status_code == 200
+        r = client.post(f"{API}/activate", json={"address": acct.address, "amount": 10}, timeout=30)
+        assert r.status_code == 200, r.text
+        assert r.json()["address"] == addr
+
+    def test_activate_missing_fields_422(self, client):
+        r = client.post(f"{API}/activate", json={"address": "0x1"}, timeout=30)
+        assert r.status_code == 422, r.text
+
+    def test_activate_non_numeric_amount_422(self, client):
+        addr = authed_wallet(client)
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": "abc"}, timeout=30)
+        assert r.status_code == 422, r.text
+
+    def test_negative_amount_rejected(self, client):
+        addr = authed_wallet(client)
+        r = client.post(f"{API}/activate", json={"address": addr, "amount": -100}, timeout=30)
+        assert r.status_code == 400, r.text
+        assert client.get(f"{API}/user/{addr}", timeout=30).json()["is_active"] is False
