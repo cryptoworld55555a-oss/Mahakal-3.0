@@ -278,6 +278,12 @@ async def dashboard_stats():
         "min_activation_usdt": MIN_ACTIVATION_USDT,
         "price_usd": TOKEN_PRICE_USD,
         "price_spark": PRICE_SPARK,
+        "liquidity": {
+            "usdt": 2000.0,
+            "ttn": round(2000.0 / TOKEN_PRICE_USD, 2),
+            "value_usd": 4000.0,
+            "pair": "TTN/USDT · PancakeSwap V2",
+        },
         "resets": _pool_resets(),
         "token": TOKEN_SPEC,
     }
