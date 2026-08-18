@@ -30,6 +30,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
         <span className="flex min-w-0 items-center gap-1 text-[10px] text-white/40">
           <span className="shrink-0">resets</span>
           <Countdown target={reset} testid={resetTestid} />
+          <span className="shrink-0 text-white/30">UTC</span>
         </span>
         <span
           data-testid={`${testid}-eligibility`}
