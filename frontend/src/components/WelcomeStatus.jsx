@@ -70,6 +70,7 @@ export default function WelcomeStatus({ stats, me }) {
               stroke="url(#sparkGrad)"
               strokeWidth={2.5}
               isAnimationActive={false}
+              activeDot={false}
               dot={(props) => {
                 const { cx, cy, index } = props;
                 if (index !== spark.length - 1 || cx == null || cy == null) return null;

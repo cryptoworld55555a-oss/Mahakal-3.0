@@ -94,3 +94,29 @@ body {
   animation: ttnLiveGlow 2.6s ease-in-out infinite;
   filter: drop-shadow(0 0 4px rgba(214, 197, 30, 0.7)) drop-shadow(0 0 6px rgba(10, 168, 79, 0.5));
 }
+
+/* Price graph: no focus/tap border, outline or highlight on touch/click */
+[data-testid="price-sparkline"],
+[data-testid="price-sparkline"] *,
+[data-testid="price-sparkline"] svg,
+[data-testid="price-sparkline"] .recharts-wrapper,
+[data-testid="price-sparkline"] .recharts-surface {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+[data-testid="price-sparkline"] *:focus,
+[data-testid="price-sparkline"] *:focus-visible,
+[data-testid="price-sparkline"] *:active {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+[data-testid="price-sparkline"] .recharts-wrapper,
+[data-testid="price-sparkline"] .recharts-surface {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
