@@ -48,7 +48,7 @@ export default function MiningPage() {
       <div data-testid="claim-reward-card" className="card-glow p-5">
         <div className="mb-3 flex items-center gap-2">
           <Pickaxe size={16} className="text-[#34D07A]" />
-          <span className="text-base font-bold text-[#34D07A]">Claim Mining Reward</span>
+          <span className="text-base font-bold grad-title">Claim Mining Reward</span>
         </div>
         <div className="rounded-xl border border-[#3C6B33]/50 bg-black/30 p-4">
           <div className="flex items-center justify-between">
@@ -74,7 +74,7 @@ export default function MiningPage() {
 
       {/* Mining cap utilization */}
       <div data-testid="cap-utilization-card" className="card-glow p-5">
-        <div className="text-base font-bold text-[#D6C51E]">Mining Cap Utilization</div>
+        <div className="text-base font-bold grad-title">Mining Cap Utilization</div>
         <div className="mb-2 text-xs text-white/50">Standard · Based on $0.00 Stake</div>
         <Gauge pct={0} />
         <div className="mt-3 grid grid-cols-2 gap-3">
@@ -93,7 +93,7 @@ export default function MiningPage() {
       <div data-testid="reward-accounting-card">
         <div className="mb-2 flex items-center gap-2">
           <Database size={16} className="text-[#34D07A]" />
-          <span className="text-base font-bold text-[#34D07A]">On-chain Reward Accounting</span>
+          <span className="text-base font-bold grad-title">On-chain Reward Accounting</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Stat label="TTN Holding" value={`${usd2(me?.holding?.ttn)} TTN`} />
@@ -107,7 +107,7 @@ export default function MiningPage() {
       <div data-testid="mining-history" className="card-glow p-5">
         <div className="mb-1 flex items-center gap-2">
           <History size={16} className="text-[#34D07A]" />
-          <span className="text-base font-bold text-[#D6C51E]">Mining Claim History</span>
+          <span className="text-base font-bold grad-title">Mining Claim History</span>
         </div>
         <p className="mb-3 text-xs text-[#34D07A]">0 confirmed mining claims</p>
         <div className="grid grid-cols-3 gap-2 border-t border-white/5 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#D6C51E]">

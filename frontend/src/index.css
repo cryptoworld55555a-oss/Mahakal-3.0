@@ -82,6 +82,12 @@ body {
     background-clip: text;
     color: transparent;
   }
+  .grad-title {
+    background: linear-gradient(90deg, #22C55E 0%, #65B82E 48%, #D6C51E 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 @keyframes ttnLiveGlow {

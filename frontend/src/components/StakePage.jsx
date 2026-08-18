@@ -154,7 +154,7 @@ export default function StakePage() {
       <div data-testid="stake-history" className="card-glow mt-2 p-5">
         <div className="mb-1 flex items-center gap-2">
           <History size={16} className="text-[#34D07A]" />
-          <span className="text-base font-bold text-white">Stake Participation History</span>
+          <span className="text-base font-bold grad-title">Stake Participation History</span>
         </div>
         <p className="mb-3 text-xs text-[#34D07A]">0 confirmed transactions</p>
         <div className="grid grid-cols-3 gap-2 border-t border-white/5 py-2 text-[10px] font-semibold uppercase tracking-wide text-[#D6C51E]">
