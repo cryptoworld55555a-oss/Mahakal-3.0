@@ -52,14 +52,14 @@ export default function GlobalBusiness({ stats, me }) {
   return (
     <div>
       <SectionLabel>Global Business</SectionLabel>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex flex-col gap-3">
         <PoolCard
-          testid="gb-daily-pool" icon={CalendarDays} title="Daily Pool"
+          testid="gb-daily-pool" icon={CalendarDays} title="Daily Pool" full
           amount={stats?.pools?.daily_usdt} qualified={meta.daily?.qualified_ids} sharing={meta.daily?.sharing_usdt}
           reset={stats?.resets?.daily} resetTestid="gb-daily-countdown" eligible={eligible}
         />
         <PoolCard
-          testid="gb-weekly-pool" icon={Trophy} title="Weekly Pool"
+          testid="gb-weekly-pool" icon={Trophy} title="Weekly Pool" full
           amount={stats?.pools?.weekly_usdt} qualified={meta.weekly?.qualified_ids} sharing={meta.weekly?.sharing_usdt}
           reset={stats?.resets?.weekly} resetTestid="gb-weekly-countdown" eligible={eligible}
         />
