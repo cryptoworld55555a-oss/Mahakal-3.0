@@ -36,9 +36,13 @@ export default function WelcomeStatus({ stats, me }) {
         <div className="mt-3 flex items-center gap-2 text-xs">
           <span className="text-white/50">STATUS</span>
           {me?.is_active ? (
-            <span data-testid="welcome-status" className="font-bold text-[#34D07A]">Active</span>
+            <span data-testid="welcome-status" className="flex items-center gap-1.5 font-bold text-[#34D07A]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#34D07A]" /> Active
+            </span>
           ) : (
-            <span data-testid="welcome-status" className="font-bold text-red-400">Inactive</span>
+            <span data-testid="welcome-status" className="flex items-center gap-1.5 font-bold text-red-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Inactive
+            </span>
           )}
         </div>
 
