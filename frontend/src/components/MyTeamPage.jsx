@@ -37,36 +37,41 @@ function StructCard({ side, data, testid }) {
   );
 }
 
-function LevelRow({ lv }) {
+function LevelCard({ lv }) {
   const { Icon, color } = TIER[lv.tier] || TIER.star;
   return (
-    <div data-testid={`team-level-${lv.tier}`} className="flex items-start gap-3 border-t border-white/5 py-3 first:border-t-0">
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border" style={{ borderColor: `${color}55`, backgroundColor: `${color}14` }}>
-        <Icon size={18} style={{ color }} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-bold text-white">{lv.name}</span>
-          {lv.unlocked ? (
-            <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#34D07A]"><CheckCircle2 size={13} /> {lv.status || "Unlocked"}</span>
-          ) : (
-            <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-white/40"><Lock size={12} /> Locked</span>
+    <div data-testid={`team-level-${lv.tier}`} className="card-glow p-4" style={{ borderColor: `${color}55` }}>
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border"
+          style={{ borderColor: `${color}77`, backgroundColor: `${color}1A`, boxShadow: `0 0 16px ${color}44` }}
+        >
+          <Icon size={24} style={{ color }} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-bold text-white">{lv.name}</span>
+            {lv.unlocked ? (
+              <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#34D07A]"><CheckCircle2 size={13} /> {lv.status || "Unlocked"}</span>
+            ) : (
+              <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-white/40"><Lock size={12} /> Locked</span>
+            )}
+          </div>
+          <div className="text-[11px] text-white/45">{lv.sub}</div>
+          {lv.reqs?.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {lv.reqs.map((r) => {
+                const ok = r.have >= r.need;
+                const val = r.money ? `$${usd(r.have)}/$${usd(r.need)}` : `${r.have}/${r.need}`;
+                return (
+                  <span key={r.label} className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${ok ? "border-[#0AA84F]/45 bg-[#0AA84F]/12 text-[#34D07A]" : "border-white/10 bg-white/5 text-white/55"}`}>
+                    {r.label}: <b className={ok ? "text-[#34D07A]" : "text-[#FFA000]"}>{val}</b>
+                  </span>
+                );
+              })}
+            </div>
           )}
         </div>
-        <div className="text-[11px] text-white/45">{lv.sub}</div>
-        {lv.reqs?.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {lv.reqs.map((r) => {
-              const ok = r.have >= r.need;
-              const val = r.money ? `$${usd(r.have)}/$${usd(r.need)}` : `${r.have}/${r.need}`;
-              return (
-                <span key={r.label} className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${ok ? "border-[#0AA84F]/45 bg-[#0AA84F]/12 text-[#34D07A]" : "border-white/10 bg-white/5 text-white/55"}`}>
-                  {r.label}: <b className={ok ? "text-[#34D07A]" : "text-[#FFA000]"}>{val}</b>
-                </span>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -221,18 +226,18 @@ export default function MyTeamPage() {
       </div>
 
       {/* Level Qualification Progress */}
-      <div data-testid="team-qualification" className="card-glow p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-base font-bold grad-title">Level Qualification Progress</div>
-            <p className="text-[11px] text-white/45">Network reward qualification</p>
-          </div>
-          <span data-testid="team-unlocked-count" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#D6C51E]/60 bg-[#D6C51E]/12 text-sm font-extrabold text-[#D6C51E]">
-            {q.unlocked}/{q.total}
-          </span>
+      <div data-testid="team-qualification-header" className="card-glow flex items-center justify-between p-4">
+        <div>
+          <div className="text-base font-bold grad-title">Level Qualification Progress</div>
+          <p className="text-[11px] text-white/45">Network reward qualification</p>
         </div>
+        <span data-testid="team-unlocked-count" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#D6C51E]/60 bg-[#D6C51E]/12 text-sm font-extrabold text-[#D6C51E]">
+          {q.unlocked}/{q.total}
+        </span>
+      </div>
+      <div data-testid="team-qualification" className="flex flex-col gap-3">
         {(q.levels || []).map((lv) => (
-          <LevelRow key={lv.tier} lv={lv} />
+          <LevelCard key={lv.tier} lv={lv} />
         ))}
       </div>
 
