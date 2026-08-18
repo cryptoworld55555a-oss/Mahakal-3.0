@@ -1,15 +1,16 @@
 import React from "react";
 import { Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { copyText } from "@/lib/clipboard";
 
 export default function ReferralCard({ me }) {
   const code = me?.referral_code;
   const link = code ? `${window.location.origin}/join?ref=${code}` : "";
 
-  const copy = () => {
+  const copy = async () => {
     if (!link) return;
-    navigator.clipboard?.writeText(link);
-    toast.success("Referral link copied");
+    const ok = await copyText(link);
+    ok ? toast.success("Referral link copied") : toast.error("Copy failed");
   };
 
   return (
@@ -18,7 +19,7 @@ export default function ReferralCard({ me }) {
         <Link2 size={18} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="section-label">Referral Link</div>
+        <div className="grad-label">Referral Link</div>
         <div data-testid="referral-link" className="truncate text-xs text-white/70">
           {link || "Connect wallet to get your link"}
         </div>

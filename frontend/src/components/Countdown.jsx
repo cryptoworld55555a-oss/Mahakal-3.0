@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 
 function diff(target) {
+  if (!target) return null;
   const ms = new Date(target).getTime() - Date.now();
-  if (ms <= 0) return null;
+  if (isNaN(ms) || ms <= 0) return null;
   const s = Math.floor(ms / 1000);
   return {
     d: Math.floor(s / 86400),
@@ -19,6 +20,7 @@ export default function Countdown({ target, testid, onExpire }) {
 
   useEffect(() => {
     if (!target) return;
+    setT(diff(target));
     const id = setInterval(() => {
       const next = diff(target);
       setT(next);

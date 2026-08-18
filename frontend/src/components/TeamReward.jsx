@@ -14,12 +14,12 @@ export default function TeamReward({ me }) {
       <div className="grid grid-cols-2 gap-3">
         <div data-testid="direct-reward-card" className="card-glow p-4">
           <User size={16} className="mb-2 text-[#34D07A]" />
-          <div className="section-label">Direct Reward</div>
+          <div className="grad-label">Direct Reward</div>
           <div className="text-xl font-extrabold text-white">${usd(team.direct_reward_usdt)}</div>
         </div>
         <div data-testid="level-reward-card" className="card-glow p-4">
           <Users size={16} className="mb-2 text-[#34D07A]" />
-          <div className="section-label">Level Reward</div>
+          <div className="grad-label">Level Reward</div>
           <div className="text-xl font-extrabold text-white">${usd(team.level_reward_usdt)}</div>
         </div>
       </div>

@@ -17,7 +17,7 @@ export default function WelcomeStatus({ stats, me }) {
         src={LOGO_URL}
         alt="TITAN"
         onError={(e) => (e.currentTarget.style.display = "none")}
-        className="pointer-events-none absolute -right-3 top-3 h-24 w-24 rounded-full object-cover opacity-90 shadow-[0_0_24px_rgba(10,168,79,0.35)]"
+        className="pointer-events-none absolute right-2 top-4 h-24 w-24 rounded-full object-cover opacity-95 shadow-[0_0_24px_rgba(10,168,79,0.4)]"
       />
       <div className="relative z-10 max-w-[68%]">
         <div className="flex items-center gap-2.5">

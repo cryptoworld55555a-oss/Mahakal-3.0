@@ -48,7 +48,7 @@ export default function TopHolders() {
           <span className="text-right">TTN</span>
         </div>
         {(data?.holders || []).map((h) => (
-          <div key={h.rank} className="grid grid-cols-[0.5fr_1.4fr_1fr] items-center gap-2 border-t border-white/5 px-1 py-2.5 text-xs">
+          <div key={h.rank} data-testid={`holder-row-${h.rank}`} className="grid grid-cols-[0.5fr_1.4fr_1fr] items-center gap-2 border-t border-white/5 px-1 py-2.5 text-xs">
             <span className="font-semibold text-[#34D07A]">#{h.rank}</span>
             <span className="font-mono text-white/70">{h.address}</span>
             <span className="text-right font-semibold text-white">{h.ttn}</span>

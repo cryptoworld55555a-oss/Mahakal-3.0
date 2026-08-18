@@ -10,7 +10,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
   return (
     <div data-testid={testid} className={`card-glow p-4 ${full ? "col-span-2" : ""}`}>
       <div className="mb-2 flex items-center justify-between">
-        <span className="section-label">{title}</span>
+        <span className="grad-label">{title}</span>
         <Icon size={18} className="text-[#34D07A]" />
       </div>
       <div className="truncate text-xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>

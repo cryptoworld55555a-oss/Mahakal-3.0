@@ -3,6 +3,7 @@ import { Bell, Menu, Copy, LogOut, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { LOGO_URL } from "@/config";
+import { copyText } from "@/lib/clipboard";
 import WalletModal from "@/components/WalletModal";
 
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -29,12 +30,16 @@ export default function Header() {
     };
   }, []);
 
-  const copyAddr = () => {
+  const copyAddr = async () => {
     if (!address) return;
-    navigator.clipboard?.writeText(address);
-    setCopied(true);
-    toast.success("Address copied");
-    setTimeout(() => setCopied(false), 1500);
+    const ok = await copyText(address);
+    if (ok) {
+      setCopied(true);
+      toast.success("Address copied");
+      setTimeout(() => setCopied(false), 1500);
+    } else {
+      toast.error("Copy failed");
+    }
   };
 
   return (

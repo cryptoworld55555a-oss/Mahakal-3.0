@@ -21,7 +21,7 @@ export default function MyBusiness({ me }) {
       <div data-testid="stake-card" className="card-glow p-5">
         <div className="mb-2 flex items-center gap-2">
           <Layers size={16} className="text-[#34D07A]" />
-          <span className="section-label">Stake Participation</span>
+          <span className="grad-label">Stake Participation</span>
         </div>
         <div className="text-xs text-white/50">My total stake</div>
         <div className="mb-3 text-2xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
@@ -36,12 +36,12 @@ export default function MyBusiness({ me }) {
       <div className="grid grid-cols-2 gap-3">
         <div data-testid="mining-cap-card" className="card-glow p-4">
           <Pickaxe size={16} className="mb-2 text-[#34D07A]" />
-          <div className="section-label">Available Mining Cap</div>
+          <div className="grad-label">Available Mining Cap</div>
           <div className="text-xl font-extrabold text-white">${usd(mining.available_cap_usdt)}</div>
         </div>
         <div data-testid="mining-reward-card" className="card-glow p-4">
           <Pickaxe size={16} className="mb-2 text-[#34D07A]" />
-          <div className="section-label">Generated Reward</div>
+          <div className="grad-label">Generated Reward</div>
           <div className="mb-2 text-xl font-extrabold text-white">${usd(mining.generated_reward_usdt)}</div>
           <button data-testid="mine-btn" onClick={() => soon("Mining")} className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#0AA84F]/20 py-2 text-xs font-semibold text-[#34D07A] active:scale-95">
             <Pickaxe size={13} /> Mine
@@ -72,7 +72,7 @@ export default function MyBusiness({ me }) {
       <div data-testid="total-profit-card" className="card-glow p-5">
         <div className="flex items-center justify-between">
           <div>
-            <div className="section-label">Total Profit</div>
+            <div className="grad-label">Total Profit</div>
             <div className="text-2xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
               ${usd(me?.total_profit_usdt)}
             </div>
@@ -92,7 +92,7 @@ export default function MyBusiness({ me }) {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
           {sources.map((s) => (
-            <div key={s.label} className="flex items-center justify-between text-[11px]">
+            <div key={s.label} data-testid={`profit-legend-${s.label.toLowerCase().replace(/\s+/g, "-")}`} className="flex items-center justify-between text-[11px]">
               <span className="flex items-center gap-1.5 text-white/60">
                 <span className="h-2 w-2 rounded-full" style={{ background: s.color }} /> {s.label}
               </span>

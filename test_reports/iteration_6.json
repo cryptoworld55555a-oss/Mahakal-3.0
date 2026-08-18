@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only visual/regression testing of TITAN dashboard (iteration 6). VISUAL FIX 1 verified: welcome-card coin img is fully inside welcome-status-card bounds (imgRight 365 <= cardRight 374 at 390px) at 360/390/430 and no horizontal page overflow (scrollWidth == clientWidth at all three). VISUAL FIX 2 verified: all 8 .grad-label elements (DAILY/WEEKLY/MONTHLY POOL + GLOBAL BUSINESS, MY BUSINESS, TEAM REWARD, RECENT ACTIVITY, TOP TTN HOLDERS) have linear-gradient(90deg,#22C55E->#65B82E->#D6C51E), background-clip:text, transparent color and non-zero size with correct visible text. Regression: demo SIWE connect works (new Inactive UID each time), welcome-uid/status/ttn-price $10.00/price-sparkline, referral copy toast, 3 full-width pool cards with live countdowns + eligibility pills, MyBusiness stake/mine/sell 'next module' toasts, total-profit donut + 5 legend rows, Team Reward, onchain-data-link, recent-activity, holders search (200 holders, 10/page, filter -> 1 row, 'No holders found' empty state, next/prev pagination), activation (min $10 validation toast; $50 -> Active in welcome + header, activate-card removed, pills -> Eligible, Activation row in recent activity), bottom nav all 4 Coming Soon screens + return to dashboard. Backend NOT re-run per request.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Countdown (GlobalBusiness pool cards)", "issue": "On initial page load the countdowns render 'NaN:NaN:NaN' for ~1s before the first interval tick. Cause: useState initializer runs diff(undefined) which returns {d:NaN,...} (NaN <= 0 is false so the null guard is skipped); state is only corrected 1000ms later. Fix: guard for invalid dates in diff() (return null when isNaN) and recompute t in a useEffect on target change.", "selector": "[data-testid=\"gb-daily-countdown\"]", "priority": "MEDIUM"},
+      {"component": "ReferralCard / Header copy", "issue": "navigator.clipboard?.writeText(...) promise is not caught. When clipboard permission is denied (headless/iOS Safari/non-secure context) it throws an unhandled NotAllowedError -> CRA 'Uncaught runtime errors' overlay covers the screen and blocks all clicks (Playwright clicks intercepted by #webpack-dev-server-client-overlay). Add .catch() with a fallback (textarea+execCommand) and an error toast.", "selector": "[data-testid=\"referral-copy-btn\"], [data-testid=\"menu-copy\"]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard / My Business", "issues": ["'TOTAL PROFIT' label still uses old .section-label (plain gray) while all other section/pool titles are now grad-label gradient - visually inconsistent with the new theme; same for other inner card labels (AVAILABLE MINING CAP, GENERATED REWARD, DIRECT/LEVEL REWARD) if a uniform look is intended."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_6.json"],
+  "action_items": [
+    "Wrap clipboard writeText in try/catch + fallback so a denied clipboard permission cannot produce an unhandled rejection / error overlay (ReferralCard.jsx:11, Header.jsx:34).",
+    "Fix Countdown NaN flash on first render (invalid-date guard in diff() + recompute on target change).",
+    "Optional theme polish: apply grad-label to TOTAL PROFIT and other inner card labels for consistency."
+  ],
+  "critical_code_review_comments": [
+    "Header.jsx renders data-testid=\"activation-status\" twice in two branches - keep the testid unique/consistent to avoid ambiguous selectors.",
+    "Holder rows and profit-legend rows had no data-testid (added by tester) - keep row-level testids for list/pagination assertions."
+  ],
+  "updated_files": ["/app/frontend/src/components/TopHolders.jsx", "/app/frontend/src/components/MyBusiness.jsx"],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "95%"},
+  "seed_data_creation": "Demo-wallet users TTN100003, TTN100005, TTN100006, TTN100007 created via SIWE demo connect; TTN100007 activated with $50.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Wallet-only: connect-demo-btn (random ethers wallet, SIWE). No keys.",
+  "context_for_next_testing_agent": "Both requested visual fixes PASS (coin inside card at 360/390/430, no horizontal overflow; grad-label gradient on pool titles and section labels). Correct testids: activation-amount-input (not activate-amount-input), coming-soon copy is 'landing soon' (not 'coming soon'), MyBusiness soon-toasts say 'coming in the next module'. Added data-testid holder-row-{rank} and profit-legend-{label}. Remaining open items: Countdown NaN flash on load and uncaught clipboard rejection causing CRA error overlay.",
+  "rca_of_the_issue": "Coin clipping resolved by absolute right-2/top-4 h-24 w-24 inside overflow-hidden card with text block limited to max-w-[68%]; measured geometry confirms containment. grad-label uses background-clip:text with transparent color - verified computed styles and visible text so no invisible-label regression."
+}
