@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Triangle, Bell, Menu, Copy, LogOut, Check } from "lucide-react";
+import { Bell, Menu, Copy, LogOut, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
+import { LOGO_URL } from "@/config";
 import WalletModal from "@/components/WalletModal";
 
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -41,8 +42,8 @@ export default function Header() {
       <header className="flex flex-col gap-4 px-4 pt-6">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2F6BFF]/40 bg-gradient-to-br from-[#2F6BFF]/25 to-transparent">
-              <Triangle size={20} className="fill-[#4F8DFF] text-[#4F8DFF]" />
+            <div className="h-11 w-11 overflow-hidden rounded-full ring-1 ring-[#2F6BFF]/50 shadow-[0_0_14px_rgba(47,107,255,0.35)]">
+              <img src={LOGO_URL} alt="TITAN" className="h-full w-full object-cover" />
             </div>
             <div className="leading-tight">
               <h1
@@ -150,7 +151,7 @@ export default function Header() {
         {isConnected && (
           <div
             data-testid="uid-status-row"
-            className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#0A1120] px-4 py-3"
+            className="flex items-center justify-between rounded-2xl border border-[#2E4E86]/50 bg-[#0A1120] px-4 py-3"
           >
             <div className="flex flex-col">
               <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">

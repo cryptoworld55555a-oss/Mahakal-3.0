@@ -3,11 +3,11 @@ import { motion } from "framer-motion";
 import { Crown, Coins, Users, CalendarDays, CalendarRange, CalendarClock, HeartHandshake } from "lucide-react";
 import { getDashboardStats } from "@/lib/api";
 import { useWallet } from "@/context/WalletContext";
+import { LOGO_URL } from "@/config";
 import ActivateCard from "@/components/ActivateCard";
 import Countdown from "@/components/Countdown";
 
-const COIN_URL =
-  "https://static.prod-images.emergentagent.com/jobs/3867ed87-dcc2-48ad-adde-0ee1b9542d8a/images/2859d9f0416d04032fb0a030f9b68fd980a3a10fe9c7b40be7b277fa216d5e8f.jpeg";
+const COIN_URL = LOGO_URL;
 
 const usd = (n) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n || 0);
@@ -26,7 +26,7 @@ function PoolCard({ testid, icon: Icon, label, amount, index, reset, resetTestid
       variants={fade}
       initial="hidden"
       animate="show"
-      className="flex flex-col gap-2 rounded-2xl border border-white/5 bg-[#0A1120] p-4 active:scale-[0.98] transition-transform"
+      className="flex flex-col gap-2 rounded-2xl border border-[#2E4E86]/50 bg-[#0A1120] p-4 active:scale-[0.98] transition-transform"
     >
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">
@@ -88,7 +88,7 @@ export default function Dashboard() {
         variants={fade}
         initial="hidden"
         animate="show"
-        className="relative min-h-[184px] overflow-hidden rounded-3xl border border-[#2F6BFF]/20 bg-gradient-to-br from-[#0B1530] to-[#070C1A] p-6 shadow-[0_8px_32px_rgba(47,107,255,0.12)]"
+        className="relative min-h-[184px] overflow-hidden rounded-3xl border border-[#2F6BFF]/35 bg-gradient-to-br from-[#0B1530] to-[#070C1A] p-6 shadow-[0_8px_32px_rgba(47,107,255,0.14)]"
       >
         <img
           src={COIN_URL}
@@ -96,7 +96,7 @@ export default function Dashboard() {
           onError={(e) => {
             e.currentTarget.style.display = "none";
           }}
-          className="pointer-events-none absolute -right-3 top-1/2 w-48 -translate-y-1/2 select-none opacity-95 mix-blend-screen"
+          className="pointer-events-none absolute -right-2 top-1/2 h-40 w-40 -translate-y-1/2 select-none rounded-full object-cover opacity-95 shadow-[0_0_30px_rgba(47,107,255,0.35)]"
         />
         <div className="relative z-10 max-w-[64%]">
           <div className="mb-3 flex items-center gap-2">
@@ -124,7 +124,7 @@ export default function Dashboard() {
         variants={fade}
         initial="hidden"
         animate="show"
-        className="relative overflow-hidden rounded-3xl border border-white/5 bg-[#0A1120] p-6"
+        className="relative overflow-hidden rounded-3xl border border-[#2E4E86]/50 bg-[#0A1120] p-6"
       >
         <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#2F6BFF]/10 blur-2xl" />
         <div className="mb-3 flex items-center gap-2">
@@ -161,7 +161,7 @@ export default function Dashboard() {
         variants={fade}
         initial="hidden"
         animate="show"
-        className="flex items-center justify-between rounded-2xl border border-white/5 bg-[#0A1120] p-5"
+        className="flex items-center justify-between rounded-2xl border border-[#2E4E86]/50 bg-[#0A1120] p-5"
       >
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2F6BFF]/12">

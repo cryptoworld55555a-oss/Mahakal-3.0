@@ -10,3 +10,6 @@ export const config = {
 };
 
 export const hasWalletConnect = Boolean(config.wcProjectId);
+
+export const LOGO_URL =
+  "https://customer-assets-lxgj4vgw.emergentagent.net/job_ttn-reward-engine/artifacts/xy0rdd74_file_000000001404820883ab85fa82478a61.png";
