@@ -88,16 +88,7 @@ export default function Header() {
               </button>
             )}
 
-            {isConnected && (
-              <button
-                data-testid="header-bell"
-                onClick={() => toast("No new notifications")}
-                className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 active:scale-95"
-              >
-                <Bell size={18} />
-                <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#34D07A]" />
-              </button>
-            )}
+            {isConnected && <Bell className="hidden" aria-hidden="true" />}
 
             <div className="relative" ref={menuRef}>
               <button
