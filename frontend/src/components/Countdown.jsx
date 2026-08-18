@@ -31,14 +31,14 @@ export default function Countdown({ target, testid, onExpire }) {
 
   if (!target || !t) {
     return (
-      <span data-testid={testid} className="font-mono text-[11px] text-white/40">
+      <span data-testid={testid} className="font-mono text-[11px] text-[#34D07A]/50">
         --:--:--
       </span>
     );
   }
 
   return (
-    <span data-testid={testid} className="font-mono text-[11px] tabular-nums text-white/60">
+    <span data-testid={testid} className="font-mono text-[11px] font-semibold tabular-nums text-[#34D07A]">
       {t.d > 0 ? `${t.d}d ` : ""}
       {pad(t.h)}:{pad(t.m)}:{pad(t.s)}
     </span>
