@@ -3,12 +3,12 @@ import "@/App.css";
 import Header from "@/components/Header";
 import Dashboard from "@/components/Dashboard";
 import StakePage from "@/components/StakePage";
+import MiningPage from "@/components/MiningPage";
 import BottomNav from "@/components/BottomNav";
 import ComingSoon from "@/components/ComingSoon";
 
 const modules = {
   pools: { title: "Pools", module: "Pool distribution" },
-  mining: { title: "Mining", module: "Mining & Claim" },
   team: { title: "My Team", module: "Referral & Team" },
 };
 
@@ -27,6 +27,8 @@ function App() {
           <Dashboard />
         ) : tab === "stake" ? (
           <StakePage />
+        ) : tab === "mining" ? (
+          <MiningPage />
         ) : (
           <ComingSoon title={modules[tab].title} module={modules[tab].module} />
         )}
