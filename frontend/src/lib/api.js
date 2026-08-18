@@ -15,5 +15,6 @@ export const activateId = (payload) =>
 export const getMe = (address) => api.get(`/me/${address}`).then((r) => r.data);
 export const getHolders = (params) =>
   api.get("/holders", { params }).then((r) => r.data);
+export const getTeam = (address) => api.get(`/team/${address}`).then((r) => r.data);
 
 export default api;

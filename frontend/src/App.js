@@ -5,12 +5,8 @@ import Dashboard from "@/components/Dashboard";
 import StakePage from "@/components/StakePage";
 import MiningPage from "@/components/MiningPage";
 import PoolsPage from "@/components/PoolsPage";
+import MyTeamPage from "@/components/MyTeamPage";
 import BottomNav from "@/components/BottomNav";
-import ComingSoon from "@/components/ComingSoon";
-
-const modules = {
-  team: { title: "My Team", module: "Referral & Team" },
-};
 
 function App() {
   const [tab, setTab] = useState("dashboard");
@@ -31,8 +27,10 @@ function App() {
           <MiningPage />
         ) : tab === "pools" ? (
           <PoolsPage />
+        ) : tab === "team" ? (
+          <MyTeamPage />
         ) : (
-          <ComingSoon title={modules[tab].title} module={modules[tab].module} />
+          <Dashboard />
         )}
       </div>
 

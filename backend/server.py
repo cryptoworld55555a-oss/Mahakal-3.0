@@ -335,6 +335,51 @@ async def me(address: str):
     }
 
 
+_DEMO_SPONSOR = "0xbfb8…8d90"
+
+
+@api_router.get("/team/{address}")
+async def team(address: str):
+    addr = address.lower()
+    doc = await db.users.find_one({"address": addr})
+    if not doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    active = doc.get("is_active", False)
+    levels = [
+        {"name": "Level 1", "sub": "Active membership", "tier": "level1", "unlocked": active,
+         "status": "Active" if active else "Inactive", "reqs": []},
+        {"name": "Star Leader · Levels 2-3", "sub": "Active directs", "tier": "star", "unlocked": False,
+         "reqs": [{"label": "Active directs", "have": 0, "need": 5}]},
+        {"name": "Silver Leader · Levels 4-6", "sub": "Active directs · Direct business", "tier": "silver", "unlocked": False,
+         "reqs": [{"label": "Active directs", "have": 0, "need": 5},
+                  {"label": "Direct business", "have": 0, "need": 1000, "money": True}]},
+        {"name": "Gold Leader · Levels 7-9", "sub": "Active directs · Direct business", "tier": "gold", "unlocked": False,
+         "reqs": [{"label": "Active directs", "have": 0, "need": 10},
+                  {"label": "Direct business", "have": 0, "need": 2000, "money": True}]},
+        {"name": "Diamond Leader · Levels 10-15", "sub": "Active directs · Direct business · Team business", "tier": "diamond", "unlocked": False,
+         "reqs": [{"label": "Active directs", "have": 0, "need": 10},
+                  {"label": "Direct business", "have": 0, "need": 2000, "money": True},
+                  {"label": "15-level team business", "have": 0, "need": 5000, "money": True}]},
+    ]
+    return {
+        "uid": doc["uid"],
+        "address": addr,
+        "referral_code": doc["uid"],
+        "sponsor": _DEMO_SPONSOR,
+        "structure": {
+            "left": {"business_usdt": 0.0, "team_size": 0},
+            "right": {"business_usdt": 0.0, "team_size": 0},
+        },
+        "directs": {"reward_usdt": 0.0, "count": 0, "active": 0, "inactive": 0},
+        "level_summary": {"total_team_size": 0, "total_team_business_usdt": 0.0},
+        "accounting": {"direct_level_rewards_usdt": 0.0, "lapsed_usdt": 0.0},
+        "qualification": {"unlocked": 1 if active else 0, "total": 15, "levels": levels},
+        "members": [],
+        "total_members": 0,
+    }
+
+
+
 def _gen_holders():
     r = random.Random(4242)
     hexs = "0123456789abcdef"
