@@ -24,7 +24,7 @@ export default function MyBusiness({ me }) {
           <span className="grad-label">Stake Participation</span>
         </div>
         <div className="text-xs text-white/50">My total stake</div>
-        <div className="mb-3 text-2xl font-extrabold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+        <div className="mb-3 text-2xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
           ${usd(me?.stake_usdt)} <span className="text-sm text-white/40">USDT</span>
         </div>
         <button data-testid="stake-btn" onClick={() => soon("Staking")} className="w-full rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#FFA000] py-3 text-sm font-bold text-black active:scale-[0.98]">
@@ -73,7 +73,7 @@ export default function MyBusiness({ me }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="grad-label">Total Profit</div>
-            <div className="text-2xl font-extrabold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            <div className="text-2xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
               ${usd(me?.total_profit_usdt)}
             </div>
           </div>
