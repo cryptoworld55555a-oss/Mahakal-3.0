@@ -23,7 +23,7 @@ function ReqRow({ label, have, need, suffix = "" }) {
 
 function PoolCard({ p, onInfo, onHistory }) {
   const est = p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0;
-  const qualified = p.directsHave >= p.directsNeed && p.capHave >= p.capNeed;
+  const qualified = p.reqs ? p.reqs.every((r) => r.ok) : (p.directsHave >= p.directsNeed && p.capHave >= p.capNeed);
   return (
     <div data-testid={`pool-${p.key}`} className="card-glow p-5">
       <div className="flex items-start justify-between">
@@ -53,15 +53,27 @@ function PoolCard({ p, onInfo, onHistory }) {
       <div className="mt-3 rounded-xl border border-[#3C6B33]/50 p-3">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-sm font-bold text-white">Qualification</span>
-          <span className="text-xs font-semibold text-red-400">2 pending</span>
+          <span className="text-xs font-semibold text-red-400">{p.pending || 2} pending</span>
         </div>
-        <ReqRow label={p.directsLabel} have={p.directsHave} need={p.directsNeed} />
-        <div className="flex items-center justify-between py-1 text-xs">
-          <span className="text-white/60">Available mining cap</span>
-          <span className="flex items-center gap-1.5 font-semibold text-red-400">
-            ${p.capHave}/${p.capNeed} <XCircle size={14} />
-          </span>
-        </div>
+        {p.reqs ? (
+          p.reqs.map((r) => (
+            <div key={r.label} className="flex items-center justify-between py-1 text-xs">
+              <span className="text-white/60">{r.label}</span>
+              <span className={`flex items-center gap-1.5 font-semibold ${r.ok ? "text-[#34D07A]" : "text-red-400"}`}>
+                {r.val} {r.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              </span>
+            </div>
+          ))
+        ) : (          <>
+            <ReqRow label={p.directsLabel} have={p.directsHave} need={p.directsNeed} />
+            <div className="flex items-center justify-between py-1 text-xs">
+              <span className="text-white/60">Available mining cap</span>
+              <span className="flex items-center gap-1.5 font-semibold text-red-400">
+                ${p.capHave}/${p.capNeed} <XCircle size={14} />
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-3 flex items-center gap-1.5 text-xs text-white/70">
@@ -77,7 +89,11 @@ function PoolCard({ p, onInfo, onHistory }) {
       </button>
 
       <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
-        <span className="text-[11px] text-[#34D07A]">Does NOT reduce mining cap</span>
+        {p.reducesCap ? (
+          <span className="text-[11px] text-red-400">REDUCES mining cap</span>
+        ) : (
+          <span className="text-[11px] text-[#34D07A]">Does NOT reduce mining cap</span>
+        )}
         <div className="flex items-center gap-2">
           <button
             data-testid={`pool-${p.key}-history`}
@@ -110,7 +126,16 @@ export default function PoolsPage() {
   const pools = [
     { key: "daily", title: "Daily TITAN Pool", period: `Current on-chain day · ID ${day}`, balance: stats?.pools?.daily_usdt || 0, achievers: meta.daily?.qualified_ids || 0, directsLabel: "Direct with 50+ Stake today", directsHave: 0, directsNeed: 1, capHave: 0, capNeed: 100 },
     { key: "weekly", title: "Weekly Champion Pool", period: "Current on-chain week · ID 1", balance: stats?.pools?.weekly_usdt || 0, achievers: meta.weekly?.qualified_ids || 0, directsLabel: "Directs with 50+ Stake this week", directsHave: 0, directsNeed: 5, capHave: 0, capNeed: 200 },
-    { key: "monthly", title: "Monthly Owner Club Reward", period: "Current on-chain month · ID 1", balance: stats?.pools?.monthly_usdt || 0, achievers: meta.monthly?.qualified_ids || 0, directsLabel: "Directs with 50+ Stake this month", directsHave: 0, directsNeed: 10, capHave: 0, capNeed: 500 },
+    { key: "monthly", title: "Monthly Owner Club Reward", period: "Current on-chain month · ID 1", balance: stats?.pools?.monthly_usdt || 0, achievers: meta.monthly?.qualified_ids || 0, reducesCap: true, pending: 7, reqs: [
+      { label: "Active membership (min $50)", val: "Active", ok: true },
+      { label: "Active directs (min $50 each)", val: "0/10", ok: false },
+      { label: "Direct business", val: "$0/$2,000", ok: false },
+      { label: "Left qualified IDs", val: "0/25", ok: false },
+      { label: "Right qualified IDs", val: "0/25", ok: false },
+      { label: "Left matching carry", val: "$0/$5,000", ok: false },
+      { label: "Right matching carry", val: "$0/$5,000", ok: false },
+      { label: "On-chain qualification", val: "Pending", ok: false },
+    ] },
   ];
 
   return (
@@ -149,19 +174,33 @@ export default function PoolsPage() {
                 </div>
                 <div className="mb-3 flex items-center justify-between rounded-xl border border-[#3C6B33]/50 p-3">
                   <span className="text-xs text-white/60">Are you qualified?</span>
-                  {(modal.pool.directsHave >= modal.pool.directsNeed && modal.pool.capHave >= modal.pool.capNeed) ? (
+                  {(modal.pool.reqs ? modal.pool.reqs.every((r) => r.ok) : (modal.pool.directsHave >= modal.pool.directsNeed && modal.pool.capHave >= modal.pool.capNeed)) ? (
                     <span className="flex items-center gap-1 text-xs font-bold text-[#34D07A]"><CheckCircle2 size={14} /> Qualified</span>
                   ) : (
                     <span className="flex items-center gap-1 text-xs font-bold text-red-400"><XCircle size={14} /> Not qualified</span>
                   )}
                 </div>
-                <ul className="space-y-2 text-xs text-white/70">
-                  <li>• Requires <b className="text-[#D6C51E]">{modal.pool.directsNeed}</b> direct(s) with 50+ USDT stake in this period.</li>
-                  <li>• Requires available mining cap of <b className="text-[#D6C51E]">${modal.pool.capNeed}</b>.</li>
-                  <li>• Share = pool balance split among all on-chain achievers.</li>
-                  <li>• Claiming a pool share <b className="text-[#34D07A]">does NOT reduce</b> your mining cap.</li>
-                  <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
-                </ul>
+                {modal.pool.reqs ? (
+                  <ul className="space-y-2 text-xs text-white/70">
+                    <li>• Active membership with minimum <b className="text-[#D6C51E]">$50</b> stake.</li>
+                    <li>• <b className="text-[#D6C51E]">10</b> active directs (each min <b className="text-[#D6C51E]">$50</b> deposit).</li>
+                    <li>• Direct business of <b className="text-[#D6C51E]">$2,000</b>.</li>
+                    <li>• <b className="text-[#D6C51E]">25</b> qualified IDs on left leg &amp; <b className="text-[#D6C51E]">25</b> on right leg.</li>
+                    <li>• Matching carry of <b className="text-[#D6C51E]">$5,000</b> on each leg (left &amp; right).</li>
+                    <li>• On-chain qualification verified.</li>
+                    <li>• Share = pool balance split among all on-chain achievers.</li>
+                    <li>• Claiming this pool share <b className="text-red-400">REDUCES</b> your mining cap.</li>
+                    <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
+                  </ul>
+                ) : (
+                  <ul className="space-y-2 text-xs text-white/70">
+                    <li>• Requires <b className="text-[#D6C51E]">{modal.pool.directsNeed}</b> direct(s) with 50+ USDT stake in this period.</li>
+                    <li>• Requires available mining cap of <b className="text-[#D6C51E]">${modal.pool.capNeed}</b>.</li>
+                    <li>• Share = pool balance split among all on-chain achievers.</li>
+                    <li>• Claiming a pool share <b className="text-[#34D07A]">does NOT reduce</b> your mining cap.</li>
+                    <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
+                  </ul>
+                )}
               </>
             ) : (
               <div className="py-6 text-center text-xs text-white/45">

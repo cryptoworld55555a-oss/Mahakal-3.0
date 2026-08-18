@@ -49,3 +49,6 @@ Mobile-first DeFi dApp on BNB Smart Chain. Users activate an ID with USDT (min $
 - WalletConnect live path disabled until REACT_APP_WC_PROJECT_ID is provided; Demo Wallet + MetaMask work now.
 - Tokenomics split on activation is a placeholder (creator 20%, each pool 15%, community 15%); confirm final split before on-chain.
 - Contracts compiled locally (Hardhat, solc 0.8.24 evmVersion paris, OZ 5.0.2). Deploy to BSC Testnet is pending a funded deployer key (user will test first, then mainnet).
+
+## Implemented — 2026-06 (Monthly pool conditions finalized)
+- PoolsPage.jsx: Monthly Owner Club Reward now shows the user-confirmed 8 conditions (1 met + 7 pending): Active membership (min $50) ✓, Active directs 0/10 (min $50 each), Direct business $0/$2,000, Left qualified IDs 0/25, Right qualified IDs 0/25, Left matching carry $0/$5,000, Right matching carry $0/$5,000, On-chain qualification (pending). Monthly card + info modal now show red **"REDUCES mining cap"** (daily/weekly still green "Does NOT reduce"). Qualified logic uses reqs.every when reqs present. Verified via screenshot. USER-CONFIRMED values.
