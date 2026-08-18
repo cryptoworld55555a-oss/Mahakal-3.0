@@ -5,7 +5,7 @@ export default function RecentActivity({ me }) {
   const rows = me?.recent_activity || [];
   return (
     <div data-testid="recent-activity">
-      <SectionLabel>Recent Activity</SectionLabel>
+      <SectionLabel center>Recent Activity</SectionLabel>
       <div className="card-glow overflow-hidden p-0">
         <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-2 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-white/40">
           <span>Label</span>
