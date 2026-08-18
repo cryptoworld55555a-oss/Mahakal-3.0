@@ -38,7 +38,7 @@ export default function WelcomeStatus({ stats, me }) {
           {me?.is_active ? (
             <span data-testid="welcome-status" className="font-bold text-[#34D07A]">Active</span>
           ) : (
-            <span data-testid="welcome-status" className="font-bold text-white/60">Inactive</span>
+            <span data-testid="welcome-status" className="font-bold text-red-400">Inactive</span>
           )}
         </div>
 

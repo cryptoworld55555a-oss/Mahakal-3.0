@@ -176,9 +176,9 @@ export default function Header() {
             ) : (
               <span
                 data-testid="activation-status"
-                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/50"
+                className="flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-400"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-white/40" /> Inactive
+                <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Inactive
               </span>
             )}
           </div>
