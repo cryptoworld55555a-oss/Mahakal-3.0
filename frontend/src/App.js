@@ -2,11 +2,11 @@ import { useState } from "react";
 import "@/App.css";
 import Header from "@/components/Header";
 import Dashboard from "@/components/Dashboard";
+import StakePage from "@/components/StakePage";
 import BottomNav from "@/components/BottomNav";
 import ComingSoon from "@/components/ComingSoon";
 
 const modules = {
-  stake: { title: "Stake", module: "Staking" },
   pools: { title: "Pools", module: "Pool distribution" },
   mining: { title: "Mining", module: "Mining & Claim" },
   team: { title: "My Team", module: "Referral & Team" },
@@ -25,6 +25,8 @@ function App() {
         <Header />
         {tab === "dashboard" ? (
           <Dashboard />
+        ) : tab === "stake" ? (
+          <StakePage />
         ) : (
           <ComingSoon title={modules[tab].title} module={modules[tab].module} />
         )}
