@@ -50,7 +50,7 @@ function LevelCard({ lv }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-bold text-white">{lv.name}</span>
+            <span className="truncate text-sm font-bold grad-title">{lv.name}</span>
             {lv.unlocked ? (
               <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#34D07A]"><CheckCircle2 size={13} /> {lv.status || "Unlocked"}</span>
             ) : (
