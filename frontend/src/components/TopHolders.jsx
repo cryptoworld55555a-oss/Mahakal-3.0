@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import SectionLabel from "@/components/SectionLabel";
 import { getHolders } from "@/lib/api";
+import { config } from "@/config";
 
 export default function TopHolders() {
   const [search, setSearch] = useState("");
@@ -50,8 +51,19 @@ export default function TopHolders() {
         {(data?.holders || []).map((h) => (
           <div key={h.rank} data-testid={`holder-row-${h.rank}`} className="grid grid-cols-[0.5fr_1.4fr_1fr] items-center gap-2 border-t border-white/5 px-1 py-2.5 text-xs">
             <span className="font-semibold text-[#34D07A]">#{h.rank}</span>
-            <span className="font-mono text-white/70">{h.address}</span>
-            <span className="text-right font-semibold text-white">{h.ttn}</span>
+            <a
+              data-testid={`holder-link-${h.rank}`}
+              href={`${config.explorer}/token/${config.tokenAddress}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 font-mono text-[#34D07A] active:opacity-80"
+            >
+              {h.address}
+              <ExternalLink size={12} className="shrink-0 text-[#34D07A]" />
+            </a>
+            <span className="text-right font-semibold text-white">
+              {h.ttn} <span className="text-[#D6C51E]">TTN</span>
+            </span>
           </div>
         ))}
         {data && data.holders.length === 0 && (
