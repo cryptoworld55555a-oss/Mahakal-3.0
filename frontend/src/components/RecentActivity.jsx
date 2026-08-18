@@ -22,7 +22,7 @@ export default function RecentActivity({ me }) {
               <div className="text-[10px] text-white/40">{r.date}</div>
             </div>
             <div className="text-white/70">{r.amount}</div>
-            <div className="font-mono text-[#4F8DFF]">{r.hash}</div>
+            <div className="font-mono text-[#34D07A]">{r.hash}</div>
           </div>
         ))}
       </div>

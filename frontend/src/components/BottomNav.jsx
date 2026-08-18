@@ -19,7 +19,7 @@ function Tab({ t, active, onChange }) {
       data-testid={`nav-${t.id}`}
       onClick={() => onChange(t.id)}
       className={`flex h-full w-14 flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors ${
-        isActive ? "text-[#4F8DFF]" : "text-white/40"
+        isActive ? "text-[#34D07A]" : "text-white/40"
       }`}
     >
       <Icon size={21} strokeWidth={isActive ? 2.2 : 1.8} />
@@ -33,7 +33,7 @@ export default function BottomNav({ active, onChange }) {
   return (
     <nav
       data-testid="bottom-nav"
-      className="fixed bottom-0 left-1/2 z-50 flex h-20 w-full max-w-[430px] -translate-x-1/2 items-center justify-around border-t border-white/10 bg-[#05080F]/90 px-2 backdrop-blur-2xl"
+      className="fixed bottom-0 left-1/2 z-50 flex h-20 w-full max-w-[430px] -translate-x-1/2 items-center justify-around border-t border-white/10 bg-[#04110A]/90 px-2 backdrop-blur-2xl"
     >
       {left.map((t) => <Tab key={t.id} t={t} active={active} onChange={onChange} />)}
 
@@ -45,12 +45,12 @@ export default function BottomNav({ active, onChange }) {
       >
         <span
           className={`absolute -top-7 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full ring-2 transition-all ${
-            dashActive ? "ring-[#2F6BFF] shadow-[0_0_18px_rgba(47,107,255,0.7)]" : "ring-white/15"
+            dashActive ? "ring-[#0AA84F] shadow-[0_0_18px_rgba(10,168,79,0.7)]" : "ring-white/15"
           }`}
         >
           <img src={LOGO_URL} alt="TITAN" className="h-full w-full object-cover" />
         </span>
-        <span className={`mt-8 text-[10px] font-semibold ${dashActive ? "text-[#4F8DFF]" : "text-white/40"}`}>
+        <span className={`mt-8 text-[10px] font-semibold ${dashActive ? "text-[#34D07A]" : "text-white/40"}`}>
           Dashboard
         </span>
       </button>

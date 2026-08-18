@@ -23,7 +23,7 @@ export default function TopHolders() {
       <div className="card-glow p-4">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-xs text-white/50">Ranked by on-chain holdings</span>
-          <span data-testid="holders-count" className="rounded-full bg-[#2F6BFF]/15 px-2.5 py-1 text-[10px] font-semibold text-[#4F8DFF]">
+          <span data-testid="holders-count" className="rounded-full bg-[#0AA84F]/15 px-2.5 py-1 text-[10px] font-semibold text-[#34D07A]">
             {data?.total ?? 0} holders
           </span>
         </div>
@@ -49,7 +49,7 @@ export default function TopHolders() {
         </div>
         {(data?.holders || []).map((h) => (
           <div key={h.rank} className="grid grid-cols-[0.5fr_1.4fr_1fr] items-center gap-2 border-t border-white/5 px-1 py-2.5 text-xs">
-            <span className="font-semibold text-[#4F8DFF]">#{h.rank}</span>
+            <span className="font-semibold text-[#34D07A]">#{h.rank}</span>
             <span className="font-mono text-white/70">{h.address}</span>
             <span className="text-right font-semibold text-white">{h.ttn}</span>
           </div>

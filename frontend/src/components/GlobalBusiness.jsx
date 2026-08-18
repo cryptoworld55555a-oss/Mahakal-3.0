@@ -11,7 +11,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
     <div data-testid={testid} className={`card-glow p-4 ${full ? "col-span-2" : ""}`}>
       <div className="mb-2 flex items-center justify-between">
         <span className="section-label">{title}</span>
-        <Icon size={18} className="text-[#4F8DFF]" />
+        <Icon size={18} className="text-[#34D07A]" />
       </div>
       <div className="truncate text-xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
         ${usd(amount)}
@@ -23,7 +23,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
         </div>
         <div className="flex items-center justify-between">
           <span className="text-white/50">Sharing</span>
-          <b className="text-[#4F8DFF]">${usd2(sharing)}</b>
+          <b className="text-[#34D07A]">${usd2(sharing)}</b>
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -35,7 +35,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
           data-testid={`${testid}-eligibility`}
           className={`shrink-0 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${
             eligible
-              ? "bg-[#2F6BFF]/15 text-[#4F8DFF] border border-[#2F6BFF]/40"
+              ? "bg-[#0AA84F]/15 text-[#34D07A] border border-[#0AA84F]/40"
               : "bg-white/5 text-white/40 border border-white/10"
           }`}
         >

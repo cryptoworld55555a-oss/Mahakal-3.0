@@ -47,7 +47,7 @@ export default function WalletModal({ open, onClose }) {
         >
           <motion.div
             data-testid="wallet-modal"
-            className="w-full max-w-[430px] rounded-t-3xl border-t border-[#2F6BFF]/20 bg-[#0A1120] p-5 pb-8"
+            className="w-full max-w-[430px] rounded-t-3xl border-t border-[#0AA84F]/20 bg-[#0A1710] p-5 pb-8"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -76,9 +76,9 @@ export default function WalletModal({ open, onClose }) {
                     data-testid={`connect-${opt.id}-btn`}
                     disabled={disabled}
                     onClick={() => handle(opt.id)}
-                    className="flex items-center gap-4 rounded-2xl border border-[#2F6BFF]/25 bg-[#2F6BFF]/10 p-4 text-left transition-all active:scale-[0.98] disabled:opacity-40"
+                    className="flex items-center gap-4 rounded-2xl border border-[#0AA84F]/25 bg-[#0AA84F]/10 p-4 text-left transition-all active:scale-[0.98] disabled:opacity-40"
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2F6BFF]/15 text-[#4F8DFF]">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0AA84F]/15 text-[#34D07A]">
                       <Icon size={22} />
                     </span>
                     <span className="flex flex-col">
@@ -97,7 +97,7 @@ export default function WalletModal({ open, onClose }) {
             </div>
 
             {connecting && (
-              <p className="mt-4 text-center text-sm text-[#4F8DFF]" data-testid="wallet-connecting">
+              <p className="mt-4 text-center text-sm text-[#34D07A]" data-testid="wallet-connecting">
                 Requesting signature…
               </p>
             )}

@@ -42,7 +42,7 @@ export default function Header() {
       <header className="flex flex-col gap-4 px-4 pt-6">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-[#2F6BFF]/50 shadow-[0_0_14px_rgba(47,107,255,0.35)]">
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-[#0AA84F]/50 shadow-[0_0_14px_rgba(10,168,79,0.35)]">
               <img src={LOGO_URL} alt="TITAN" className="h-full w-full object-cover" />
             </div>
             <div className="leading-tight">
@@ -53,7 +53,7 @@ export default function Header() {
               >
                 TITAN
               </h1>
-              <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.18em] text-[#4F8DFF]">
+              <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.18em] text-[#34D07A]">
                 DeFi Platform
               </span>
             </div>
@@ -64,20 +64,20 @@ export default function Header() {
               <button
                 data-testid="wallet-address-btn"
                 onClick={copyAddr}
-                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#2F6BFF]/30 bg-[#2F6BFF]/10 px-2.5 py-2 text-[11px] font-semibold text-white/90 active:scale-95"
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#0AA84F]/30 bg-[#0AA84F]/10 px-2.5 py-2 text-[11px] font-semibold text-white/90 active:scale-95"
               >
                 {short(address)}
                 {copied ? (
-                  <Check size={14} className="text-[#4F8DFF]" />
+                  <Check size={14} className="text-[#34D07A]" />
                 ) : (
-                  <Copy size={14} className="text-[#4F8DFF]" />
+                  <Copy size={14} className="text-[#34D07A]" />
                 )}
               </button>
             ) : (
               <button
                 data-testid="wallet-connect-btn"
                 onClick={() => setOpen(true)}
-                className="flex h-10 items-center gap-2 whitespace-nowrap rounded-xl border border-[#2F6BFF]/40 bg-[#2F6BFF]/15 px-3.5 text-sm font-semibold text-[#4F8DFF] active:scale-95 transition-all"
+                className="flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#D6C51E] px-4 text-sm font-bold text-black active:scale-95 transition-all shadow-[0_0_16px_rgba(10,168,79,0.45)]"
               >
                 Connect
               </button>
@@ -90,7 +90,7 @@ export default function Header() {
                 className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 active:scale-95"
               >
                 <Bell size={18} />
-                <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#4F8DFF]" />
+                <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-[#34D07A]" />
               </button>
             )}
 
@@ -105,7 +105,7 @@ export default function Header() {
               {menuOpen && (
                 <div
                   data-testid="header-menu-dropdown"
-                  className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#0A1120] shadow-xl"
+                  className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#0A1710] shadow-xl"
                 >
                   {isConnected ? (
                     <>
@@ -151,7 +151,7 @@ export default function Header() {
         {isConnected && (
           <div
             data-testid="uid-status-row"
-            className="flex items-center justify-between rounded-2xl border border-[#2E4E86]/50 bg-[#0A1120] px-4 py-3"
+            className="flex items-center justify-between rounded-2xl border border-[#3C6B33]/50 bg-[#0A1710] px-4 py-3"
           >
             <div className="flex flex-col">
               <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">
@@ -164,9 +164,9 @@ export default function Header() {
             {user?.is_active ? (
               <span
                 data-testid="activation-status"
-                className="flex items-center gap-1.5 rounded-full border border-[#2F6BFF]/40 bg-[#2F6BFF]/15 px-3 py-1.5 text-xs font-semibold text-[#4F8DFF] shadow-[0_0_10px_rgba(47,107,255,0.25)]"
+                className="flex items-center gap-1.5 rounded-full border border-[#0AA84F]/40 bg-[#0AA84F]/15 px-3 py-1.5 text-xs font-semibold text-[#34D07A] shadow-[0_0_10px_rgba(10,168,79,0.25)]"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-[#4F8DFF]" /> Active
+                <span className="h-1.5 w-1.5 rounded-full bg-[#34D07A]" /> Active
               </span>
             ) : (
               <span

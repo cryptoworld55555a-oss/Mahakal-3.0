@@ -12,20 +12,21 @@ export default function WelcomeStatus({ stats, me }) {
 
   return (
     <div data-testid="welcome-status-card" className="card-glow relative overflow-hidden p-5">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0AA84F]/14 via-transparent to-[#FFA000]/12" />
       <img
         src={LOGO_URL}
         alt="TITAN"
         onError={(e) => (e.currentTarget.style.display = "none")}
-        className="pointer-events-none absolute -right-3 top-3 h-24 w-24 rounded-full object-cover opacity-90 shadow-[0_0_24px_rgba(47,107,255,0.35)]"
+        className="pointer-events-none absolute -right-3 top-3 h-24 w-24 rounded-full object-cover opacity-90 shadow-[0_0_24px_rgba(10,168,79,0.35)]"
       />
       <div className="relative z-10 max-w-[68%]">
         <div className="flex items-center gap-2.5">
-          <UserCircle2 size={30} className="text-[#4F8DFF]" />
+          <UserCircle2 size={30} className="text-[#34D07A]" />
           <div className="leading-tight">
             <div className="text-xs text-white/50">Welcome back,</div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-white/50">UID</span>
-              <span data-testid="welcome-uid" className="font-bold text-[#4F8DFF]">
+              <span data-testid="welcome-uid" className="font-bold text-[#34D07A]">
                 {me?.uid || "—"}
               </span>
             </div>
@@ -35,7 +36,7 @@ export default function WelcomeStatus({ stats, me }) {
         <div className="mt-3 flex items-center gap-2 text-xs">
           <span className="text-white/50">STATUS</span>
           {me?.is_active ? (
-            <span data-testid="welcome-status" className="font-bold text-[#4F8DFF]">Active</span>
+            <span data-testid="welcome-status" className="font-bold text-[#34D07A]">Active</span>
           ) : (
             <span data-testid="welcome-status" className="font-bold text-white/60">Inactive</span>
           )}
@@ -47,16 +48,23 @@ export default function WelcomeStatus({ stats, me }) {
             <span data-testid="ttn-price" className="text-2xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
               ${money(price)}
             </span>
-            <TrendingUp size={16} className="mb-1 text-[#4F8DFF]" />
+            <TrendingUp size={16} className="mb-1 text-[#34D07A]" />
           </div>
         </div>
       </div>
 
-      <div className="mt-3 h-12 w-full" data-testid="price-sparkline">
+      <div className="relative z-10 mt-3 h-12 w-full" data-testid="price-sparkline">
         <ResponsiveContainer width="99%" height="100%" minWidth={0}>
           <LineChart data={spark} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#0AA84F" />
+                <stop offset="55%" stopColor="#65B82E" />
+                <stop offset="100%" stopColor="#FFC400" />
+              </linearGradient>
+            </defs>
             <YAxis hide domain={["dataMin", "dataMax"]} />
-            <Line type="monotone" dataKey="v" stroke="#4F8DFF" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="v" stroke="url(#sparkGrad)" strokeWidth={2.5} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

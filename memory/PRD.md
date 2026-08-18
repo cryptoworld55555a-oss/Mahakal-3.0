@@ -44,7 +44,7 @@ Mobile-first DeFi dApp on BNB Smart Chain. Users activate an ID with USDT (min $
 - Tested: backend 42/42 pytest; frontend 100% functional (iteration_5); cosmetic 360px header/pool overflow fixed (horizontal overflow = 0). Demo ledger reset to clean defaults.
 
 ## Notes
-- Everything in My Business / Team / Holders / price is DEMO/MOCK (per-user metrics mostly 0 for new users). Real staking/mining/referral/pool/holder logic + on-chain reads come in Modules 3–5.
+- **Theme (2026-08-19, v2):** Converted entire UI from electric-blue to **Emerald Green + Lime + Gold + Orange** on a dark black-green base (#04110A), per user's reference mockup. Green/gold card borders + green→gold→orange underglow, green→gold/orange gradient buttons, green→gold graph line, green/gold icons & headings, white numbers, soft-gray secondary text; donut uses green/lime/gold/orange. Logo kept as-is with green glow ring. Layout/sizes/functionality unchanged. Migration done via /tmp/theme_migrate.py (hex/rgb map) + targeted gold/orange edits.
 - Activation is DEMO/OFF-CHAIN: backend simulates USDT deposit and mutates a seeded MongoDB ledger (no real chain / no real USDT). Dashboard balances are seeded mock values (config-driven).
 - WalletConnect live path disabled until REACT_APP_WC_PROJECT_ID is provided; Demo Wallet + MetaMask work now.
 - Tokenomics split on activation is a placeholder (creator 20%, each pool 15%, community 15%); confirm final split before on-chain.
