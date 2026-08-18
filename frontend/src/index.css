@@ -83,3 +83,14 @@ body {
     color: transparent;
   }
 }
+
+@keyframes ttnLiveGlow {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(2.1); opacity: 0.08; }
+}
+.spark-live-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ttnLiveGlow 2.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(214, 197, 30, 0.7)) drop-shadow(0 0 6px rgba(10, 168, 79, 0.5));
+}

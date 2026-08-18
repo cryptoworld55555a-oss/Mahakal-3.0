@@ -55,7 +55,7 @@ export default function WelcomeStatus({ stats, me }) {
 
       <div className="relative z-10 mt-3 h-12 w-full" data-testid="price-sparkline">
         <ResponsiveContainer width="99%" height="100%" minWidth={0}>
-          <LineChart data={spark} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+          <LineChart data={spark} margin={{ top: 8, right: 10, bottom: 4, left: 0 }}>
             <defs>
               <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="#0AA84F" />
@@ -64,7 +64,23 @@ export default function WelcomeStatus({ stats, me }) {
               </linearGradient>
             </defs>
             <YAxis hide domain={["dataMin", "dataMax"]} />
-            <Line type="monotone" dataKey="v" stroke="url(#sparkGrad)" strokeWidth={2.5} dot={false} />
+            <Line
+              type="monotone"
+              dataKey="v"
+              stroke="url(#sparkGrad)"
+              strokeWidth={2.5}
+              isAnimationActive={false}
+              dot={(props) => {
+                const { cx, cy, index } = props;
+                if (index !== spark.length - 1 || cx == null || cy == null) return null;
+                return (
+                  <g key="live-dot" data-testid="price-live-dot">
+                    <circle cx={cx} cy={cy} r={7} fill="#D6C51E" className="spark-live-glow" />
+                    <circle cx={cx} cy={cy} r={3.4} fill="#FFFDE7" stroke="#22C55E" strokeWidth={1.6} />
+                  </g>
+                );
+              }}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

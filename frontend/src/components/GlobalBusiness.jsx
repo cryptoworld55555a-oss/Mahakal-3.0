@@ -33,13 +33,14 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
         </span>
         <span
           data-testid={`${testid}-eligibility`}
-          className={`shrink-0 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${
+          className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-semibold ${
             eligible
-              ? "bg-[#0AA84F]/15 text-[#34D07A] border border-[#0AA84F]/40"
-              : "bg-white/5 text-white/40 border border-white/10"
+              ? "bg-[#0AA84F]/15 text-[#22C55E] border border-[#0AA84F]/50"
+              : "bg-red-500/15 text-red-400 border border-red-500/45"
           }`}
         >
-          {eligible ? "Eligible" : "Not eligible"}
+          <span className={`h-1.5 w-1.5 rounded-full ${eligible ? "bg-[#22C55E]" : "bg-red-400"}`} />
+          {eligible ? "Eligible" : "Not Eligible"}
         </span>
       </div>
     </div>
