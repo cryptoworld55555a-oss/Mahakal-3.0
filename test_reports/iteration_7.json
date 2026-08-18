@@ -1,0 +1,23 @@
+{
+  "summary": "Frontend-only verification of the Pools Info/History modal bug fixes on the public preview URL. Tested at 360/390/430px, both anonymous and with Demo Wallet (SIWE) connected. Both reported bugs are FIXED: modal is portaled to document.body, renders vertically/horizontally centered (measured center offset < 30px), is fully within the viewport (e.g. 390x844: y=223.5 h=397, bottom 620 vs bottom-nav top 765 - no clipping), and the Info modal now shows Pool Balance, Your Est. Reward, On-chain qualified? status plus all 5 rules. Closes via pool-modal-close and via backdrop tap. All 6 buttons (daily/weekly/monthly x info/history) verified. Regression tabs (dashboard/stake/mining) OK, no horizontal overflow at any tested width, zero console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PoolsPage.jsx: pool qualification inputs are hardcoded (directsHave: 0, capHave: 0) and the Qualification card shows a static '2 pending' label; the `me` value from useWallet() is destructured but never used. Once real user directs/cap data is available these must be wired up, otherwise a genuinely qualified user will always see 'Not qualified'.",
+    "PoolsPage.jsx line 120: `onInfo={setModal ? (pool) => ... : undefined}` - the setModal truthiness check is dead code; simplify.",
+    "PoolsPage.jsx: weekly/monthly period strings are hardcoded to 'ID 1' while daily computes a day id; inconsistent."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100%"},
+  "seed_data_creation": "Demo wallet 0xe48b...5b64 (UID TTN100021) created via connect-demo-btn SIWE flow.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Demo wallet connect requires clicking wallet-connect-btn in the header first, then connect-demo-btn inside the wallet modal (connect-demo-btn is not on the landing screen). Pool modal inner container selector: '[data-testid=\"pool-modal\"] > div'. Info modal labels render uppercase via CSS, so match text case-insensitively ('POOL BALANCE', 'YOUR EST. REWARD').",
+  "rca_of_the_issue": "Previous bottom-sheet modal was rendered inside the page tree with items-end, so the fixed bottom nav overlapped it. Fix (portal to document.body + fixed inset-0 flex items-center + max-h-[80vh] overflow-y-auto) is verified correct by bounding-box measurements."
+}

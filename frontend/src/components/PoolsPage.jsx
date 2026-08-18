@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Clock, History, XCircle, CheckCircle2, Info, X } from "lucide-react";
 import { getDashboardStats } from "@/lib/api";
 import { useWallet } from "@/context/WalletContext";
@@ -119,32 +120,57 @@ export default function PoolsPage() {
         <PoolCard key={p.key} p={p} onInfo={setModal ? (pool) => setModal({ type: "info", pool }) : undefined} onHistory={(pool) => setModal({ type: "history", pool })} />
       ))}
 
-      {modal && (
-        <div data-testid="pool-modal" className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={() => setModal(null)}>
-          <div className="w-full max-w-[430px] rounded-t-3xl border-t border-[#3C6B33]/60 bg-[#0A1710] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+      {modal && createPortal(
+        <div data-testid="pool-modal" className="fixed inset-0 z-[200] flex items-center justify-center p-5 bg-black/75 backdrop-blur-sm" onClick={() => setModal(null)}>
+          <div className="max-h-[80vh] w-full max-w-[380px] overflow-y-auto rounded-3xl border border-[#3C6B33]/60 bg-[#0A1710] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-base font-bold grad-title">
                 {modal.pool.title} · {modal.type === "info" ? "Rules" : "History"}
               </h3>
-              <button data-testid="pool-modal-close" onClick={() => setModal(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/60">
+              <button data-testid="pool-modal-close" onClick={() => setModal(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white/60">
                 <X size={16} />
               </button>
             </div>
             {modal.type === "info" ? (
-              <ul className="space-y-2 text-xs text-white/70">
-                <li>• Requires <b className="text-[#D6C51E]">{modal.pool.directsNeed}</b> direct(s) with 50+ USDT stake in this period.</li>
-                <li>• Requires available mining cap of <b className="text-[#D6C51E]">${modal.pool.capNeed}</b>.</li>
-                <li>• Share = pool balance split among all on-chain achievers.</li>
-                <li>• Claiming a pool share <b className="text-[#34D07A]">does NOT reduce</b> your mining cap.</li>
-                <li>• Estimate is live; final amount is locked when the pool closes at 00:00 UTC.</li>
-              </ul>
+              <>
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-[#3C6B33]/50 p-3">
+                    <div className="text-[10px] uppercase text-white/45">Pool Balance</div>
+                    <div className="text-lg font-bold text-white">${usd(modal.pool.balance)}</div>
+                  </div>
+                  <div className="rounded-xl border border-[#3C6B33]/50 p-3">
+                    <div className="text-[10px] uppercase text-white/45">Your Est. Reward</div>
+                    <div className="text-lg font-bold text-[#D6C51E]">${usd2(modal.pool.balance / (modal.pool.achievers + 1))}</div>
+                  </div>
+                </div>
+                <div className="mb-3 flex items-center justify-between rounded-xl border border-[#3C6B33]/50 p-3">
+                  <span className="text-xs text-white/60">On-chain qualified users</span>
+                  <span data-testid="pool-modal-achievers" className="text-sm font-bold text-[#34D07A]">{modal.pool.achievers}</span>
+                </div>
+                <div className="mb-3 flex items-center justify-between rounded-xl border border-[#3C6B33]/50 p-3">
+                  <span className="text-xs text-white/60">Are you qualified?</span>
+                  {(modal.pool.directsHave >= modal.pool.directsNeed && modal.pool.capHave >= modal.pool.capNeed) ? (
+                    <span className="flex items-center gap-1 text-xs font-bold text-[#34D07A]"><CheckCircle2 size={14} /> Qualified</span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs font-bold text-red-400"><XCircle size={14} /> Not qualified</span>
+                  )}
+                </div>
+                <ul className="space-y-2 text-xs text-white/70">
+                  <li>• Requires <b className="text-[#D6C51E]">{modal.pool.directsNeed}</b> direct(s) with 50+ USDT stake in this period.</li>
+                  <li>• Requires available mining cap of <b className="text-[#D6C51E]">${modal.pool.capNeed}</b>.</li>
+                  <li>• Share = pool balance split among all on-chain achievers.</li>
+                  <li>• Claiming a pool share <b className="text-[#34D07A]">does NOT reduce</b> your mining cap.</li>
+                  <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
+                </ul>
+              </>
             ) : (
               <div className="py-6 text-center text-xs text-white/45">
                 No confirmed {modal.pool.title.toLowerCase()} claims found for this wallet.
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
