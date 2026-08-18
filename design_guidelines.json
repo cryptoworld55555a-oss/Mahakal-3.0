@@ -1,0 +1,120 @@
+{
+  "theme": "dark",
+  "app_type": "mobile_web_app",
+  "typography": {
+    "headings": {
+      "font_family": "Unbounded, Inter, sans-serif",
+      "strategy": "Unbounded for main data points/balances to give a premium crypto aesthetic. Inter for smaller headers.",
+      "h1": "text-4xl tracking-tighter font-bold",
+      "h2": "text-2xl tracking-tight font-semibold",
+      "h3": "text-xl tracking-tight font-medium"
+    },
+    "body": {
+      "font_family": "Inter, Roboto, sans-serif",
+      "strategy": "Inter for all body text for maximal readability on mobile.",
+      "base": "text-base leading-relaxed",
+      "small": "text-sm leading-normal text-[#9BA1B0]",
+      "tiny": "text-xs tracking-[0.05em] uppercase font-semibold text-[#9BA1B0]"
+    }
+  },
+  "colors": {
+    "background": {
+      "primary": "#050711",
+      "secondary": "#0A0D1C",
+      "card": "#0F1326"
+    },
+    "accents": {
+      "gold": "#D4AF37",
+      "cyan": "#00E5FF",
+      "purple": "#9D4EDD"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#9BA1B0",
+      "success": "#00E5FF"
+    },
+    "borders": {
+      "default": "rgba(255, 255, 255, 0.05)",
+      "active": "rgba(0, 229, 255, 0.3)"
+    },
+    "strategy": "Dark navy base creates depth. Use Cyan for interactive elements and live data (active states), Purple for structural glow/ambient light, and Gold for premium static assets like Creator Balance or Token Supply. Avoid full screen gradients."
+  },
+  "layouts": {
+    "container": "w-full max-w-[430px] mx-auto min-h-screen bg-[#050711] overflow-x-hidden flex flex-col relative pb-24 shadow-2xl",
+    "spacing": "p-4 md:p-6 gap-4 flex flex-col",
+    "cards": {
+      "style": "bg-[#0A0D1C] border border-white/5 rounded-2xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.2)]",
+      "glass": "backdrop-blur-xl bg-black/40 border border-white/10 rounded-2xl p-5"
+    },
+    "bottom_nav": "fixed bottom-0 w-full max-w-[430px] mx-auto h-20 bg-black/80 backdrop-blur-2xl border-t border-white/10 flex items-center justify-around z-50 px-2 left-1/2 -translate-x-1/2"
+  },
+  "motion": {
+    "transitions": "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, box-shadow 0.2s ease",
+    "interactions": "Buttons shrink slightly on active (scale-95), cards lift on touch (translate-y-[-2px] shadow-cyan/20)",
+    "data_updates": "Subtle flash in Cyan when balances update"
+  },
+  "visual_enhancers": {
+    "glow": "Use drop-shadow-[0_0_12px_rgba(0,229,255,0.4)] on primary active elements",
+    "gradients": "Text gradients for 'TITAN (TTN)' or Total Supply using bg-gradient-to-r from-[#D4AF37] to-[#FFDF73] bg-clip-text text-transparent",
+    "borders": "1px inner stroke on all cards to separate them from the deep navy background"
+  },
+  "components": {
+    "wallet_connect": {
+      "description": "Primary action button, thumb-friendly height (min 48px). Deep navy/cyan combination.",
+      "classes": "h-14 w-full bg-cyan/10 border border-cyan/30 text-[#00E5FF] rounded-xl font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all"
+    },
+    "uid_badge": {
+      "description": "Small pill-shaped badge showing status.",
+      "classes_active": "px-3 py-1.5 rounded-full bg-cyan/10 border border-cyan/30 text-cyan text-xs font-semibold flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,229,255,0.2)]",
+      "classes_inactive": "px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 text-xs font-semibold flex items-center gap-1.5"
+    },
+    "balance_card": {
+      "description": "Hero card for Creator Balance / Token Supply.",
+      "classes": "relative overflow-hidden bg-gradient-to-br from-[#0F1326] to-[#0A0D1C] border border-gold/20 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+    },
+    "pool_grid": {
+      "description": "Grid for Daily, Weekly, Monthly, Community pools. 2 columns to save vertical space on mobile.",
+      "classes": "grid grid-cols-2 gap-3"
+    },
+    "pool_card": {
+      "description": "Individual pool card.",
+      "classes": "bg-[#0A0D1C] border border-white/5 rounded-2xl p-4 flex flex-col gap-1 active:scale-[0.98] transition-transform"
+    },
+    "bottom_nav_item": {
+      "description": "Touchable zones for navigation. Active state uses Cyan.",
+      "classes": "flex flex-col items-center justify-center w-16 h-full gap-1.5 text-white/40 text-[10px] font-medium transition-colors",
+      "classes_active": "text-[#00E5FF] drop-shadow-[0_0_8px_rgba(0,229,255,0.5)]"
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure Cyan/Purple accents against Navy pass APCA/WCAG contrast ratios.",
+    "touch_targets": "All interactive elements (buttons, nav tabs) MUST be minimum 48x48px.",
+    "data_testid": "MANDATORY on all buttons, balances, and tabs (e.g., data-testid='wallet-connect-btn', data-testid='daily-pool-balance')"
+  },
+  "media": {
+    "image_urls": {
+      "background_glow": {
+        "url": "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGRhcmslMjBiYWNrZ3JvdW5kJTIwY3lhbiUyMHB1cnBsZSUyMGdsb3d8ZW58MHx8fHwxNzg3MDc2MDM5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract purple/cyan glow to be used as a heavily blurred (blur-3xl) background overlay at 10-20% opacity fixed behind the top hero section to create depth."
+      },
+      "gold_texture": {
+        "url": "https://images.unsplash.com/photo-1594896733292-9a77b5809c63?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwyfHxnb2xkJTIwYnJvbnplJTIwdGV4dHVyZSUyMGRhcmt8ZW58MHx8fHwxNzg3MDc2MDM5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Molten gold texture to be used as a mask or very subtle background (mix-blend-overlay opacity-20) on the TTN Token Supply/Creator Balance cards to make them feel premium."
+      }
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage": "Use strictly 20px-24px icons with a 1.5px to 2px stroke width. For bottom nav: Wallet, LayoutDashboard (Active), Pickaxe, Users, ArrowRightLeft."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not center-align app container; let layout dictate alignment.",
+    "Mobile-first strictly. Max width 430px container centered on desktop screens.",
+    "Do not use transparent background without backdrop-blur for overlays/nav.",
+    "Enforce 'data-testid' on ALL interactive elements.",
+    "Never use generic placeholder images.",
+    "No horizontal scroll on any elements.",
+    "Use standard font imports in CSS/HTML for 'Inter' and 'Unbounded'."
+  ],
+  "instructions_to_main_agent": "Construct the frontend to wrap a MobileContainer (max-w-[430px] mx-auto w-full min-h-screen bg-[#050711] text-white relative pb-24 shadow-2xl). Implement the Dashboard view. Add a fixed Bottom Navigation. Build 5 major UI sections: 1) Header (Logo + Wallet Connect + UID/Active Badge), 2) Hero Balances (Creator Balance & Total Supply - 200,000 TTN), 3) Pool Grid (2x2 grid for Daily/Weekly/Monthly/Community), 4) Total Activated Users stat, 5) Bottom Tab Navigation. Use generic mockup numbers but format them beautifully (e.g. $10,000 USDT). Use glowing cyan borders and text for the 'Active' status."
+}

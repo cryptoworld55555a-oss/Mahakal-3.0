@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  background-color: #050711;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(0, 229, 255, 0.25);
+  color: #fff;
+}
+
+/* Slim scrollbar */
+::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+@layer base {
+  :root {
+    --background: 230 60% 4%;
+    --foreground: 0 0% 100%;
+    --card: 230 40% 8%;
+    --card-foreground: 0 0% 100%;
+    --primary: 187 100% 50%;
+    --primary-foreground: 230 60% 4%;
+    --border: 0 0% 100%;
+    --radius: 1rem;
+  }
+}

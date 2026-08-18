@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only retest of the CRITICAL WalletModal stacking bug (iteration_1). Fix verified: WalletModal is now createPortal'd to document.body (hit-test confirmed connect-demo-btn is topmost element at its center and lives outside #root). At 390px a NORMAL Playwright click (no force, no JS injection) on wallet-connect-btn -> connect-demo-btn completed the full SIWE demo flow: header shows shortened address 0xa046…130e, uid-status-row shows user-uid TTN100012 with Inactive activation-status badge, modal auto-closed (count 0), success toast 'Connected · TTN100012'. Session persistence verified (localStorage titan_wallet_address set; after reload wallet still connected and uid re-fetched). Modal close via X and via overlay both work; connect-walletconnect-btn correctly disabled ('Add a Project ID to enable'). Bottom nav: Stake/Pools/Mining/My Team render the coming-soon placeholder with the right module numbers; Dashboard renders dashboard cards. No horizontal overflow at 360/390/430. No console errors, no error elements.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (mobile 390px)", "issues": ["'Total Activated Users' shows 0 while the secondary label says '12 joined' — correct per data (all demo users inactive) but the 0-vs-12 juxtaposition reads as a bug to users; consider clarifying copy (e.g. '0 activated of 12 joined')."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "WalletModal portal fix is correct; keep any future overlays (toasts/sheets/dialogs) portaled to document.body so App.js's `relative z-10` wrapper can't trap them again.",
+    "Dashboard has no data-testid on its root container (only card-level testids); adding data-testid=\"dashboard\" would make tab-switch assertions cleaner.",
+    "Minor: /api/auth/nonce is still single-doc-per-address (in-flight nonce invalidated by a new request) and unrated-limited — noted in iteration_1, not re-tested."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not re-run (17/17 in iteration_1)", "frontend": "100% of retested flows"},
+  "seed_data_creation": "One new SIWE demo user created via connect-demo-btn: UID TTN100012 (address 0xa046311531a04238cb30bdf9ba1ec6d0b935130e)",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Wallet-based only; demo wallet button (random ethers wallet signs SIWE)",
+  "context_for_next_testing_agent": "Iteration_1's CRITICAL modal stacking bug is RESOLVED and re-verified with normal clicks. Remaining untested by design: connect-walletconnect-btn (disabled, no project id) and connect-injected-btn (no extension in the test browser). Backend suite: `cd /app/backend && python -m pytest tests/backend_test.py -q`.",
+  "rca_of_the_issue": "Original RCA (stacking context trap from App.js `div.relative z-10`) confirmed resolved by rendering the modal through createPortal to document.body, which places the z-[100] overlay in the root stacking context above BottomNav (z-50)."
+}
