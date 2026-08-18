@@ -45,12 +45,12 @@ body {
   /* Professional card with a soft blue underglow from the bottom edge */
   .card-glow {
     position: relative;
-    background: #0A1710;
-    border: 1px solid rgba(60, 107, 51, 0.55);
+    background: linear-gradient(135deg, #0C1A10 0%, #121C0E 45%, #1E1C0A 78%, #241E08 100%);
+    border: 1px solid rgba(150, 138, 52, 0.5);
     border-radius: 1rem;
     box-shadow:
-      0 10px 26px -14px rgba(10, 168, 79, 0.55),
-      inset 0 -1px 0 0 rgba(101, 184, 46, 0.35);
+      0 10px 26px -14px rgba(10, 168, 79, 0.5),
+      inset 0 -1px 0 0 rgba(214, 197, 30, 0.35);
   }
   .card-glow::after {
     content: "";

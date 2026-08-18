@@ -12,4 +12,4 @@ export const config = {
 export const hasWalletConnect = Boolean(config.wcProjectId);
 
 export const LOGO_URL =
-  "https://customer-assets-lxgj4vgw.emergentagent.net/job_ttn-reward-engine/artifacts/xy0rdd74_file_000000001404820883ab85fa82478a61.png";
+  "https://static.prod-images.emergentagent.com/jobs/3867ed87-dcc2-48ad-adde-0ee1b9542d8a/images/bf3bd36c8c7e77626a97dc38583d9203f3522b5c4ab8b8cef43a2f818b20147e.jpeg";
