@@ -45,7 +45,7 @@ export default function WelcomeStatus({ stats, me }) {
         <div className="mt-4">
           <div className="text-[11px] text-white/40">1 TTN =</div>
           <div className="flex items-end gap-2">
-            <span data-testid="ttn-price" className="text-2xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
+            <span data-testid="ttn-price" className="text-2xl font-extrabold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
               ${money(price)}
             </span>
             <TrendingUp size={16} className="mb-1 text-[#34D07A]" />

@@ -54,7 +54,7 @@ export default function Header() {
               <h1
                 data-testid="app-title"
                 className="text-xl font-extrabold tracking-tight text-white"
-                style={{ fontFamily: "Unbounded, Inter, sans-serif" }}
+                style={{ fontFamily: "'Share Tech Mono', monospace" }}
               >
                 TITAN
               </h1>

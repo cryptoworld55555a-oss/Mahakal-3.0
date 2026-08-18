@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,7 +12,7 @@ body,
 
 body {
   margin: 0;
-  font-family: "Inter", "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Baloo 2", "Inter", "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -66,16 +66,18 @@ body {
     pointer-events: none;
   }
   .section-label {
+    font-family: "Share Tech Mono", monospace;
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
+    font-weight: 400;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.45);
   }
   .grad-label {
+    font-family: "Share Tech Mono", monospace;
     font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.16em;
+    font-weight: 400;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     background: linear-gradient(90deg, #22C55E 0%, #65B82E 45%, #D6C51E 100%);
     -webkit-background-clip: text;

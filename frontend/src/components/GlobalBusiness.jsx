@@ -13,7 +13,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
         <span className="grad-label">{title}</span>
         <Icon size={18} className="text-[#34D07A]" />
       </div>
-      <div className="truncate text-xl font-extrabold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
+      <div className="truncate text-xl font-extrabold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
         ${usd(amount)}
       </div>
       <div className="mt-2 flex flex-col gap-1 text-[11px]">

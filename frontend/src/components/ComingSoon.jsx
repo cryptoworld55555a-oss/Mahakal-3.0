@@ -10,7 +10,7 @@ export default function ComingSoon({ title, module }) {
       <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#0AA84F]/30 bg-[#0AA84F]/10">
         <Construction size={28} className="text-[#34D07A]" />
       </span>
-      <h2 className="text-xl font-bold text-white" style={{ fontFamily: "Unbounded, Inter, sans-serif" }}>
+      <h2 className="text-xl font-bold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
         {title}
       </h2>
       <p className="max-w-[260px] text-sm text-white/50">
