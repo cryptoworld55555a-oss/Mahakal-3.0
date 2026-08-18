@@ -5,7 +5,7 @@ import {
   Rocket, Download, Zap, ShieldCheck, TrendingUp, Boxes, Eye, Users, FileCheck2,
   Copy, ArrowRight, Coins, Link2, DollarSign, Lock, BadgeCheck, CheckCircle2,
   Send, Youtube, MessageCircle, Twitter, ChevronDown, Pickaxe, Gift, UserPlus,
-  Layers, Cpu, Menu, ExternalLink,
+  Layers, Cpu, Menu, ExternalLink, KeyRound, Settings, Rabbit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getDashboardStats } from "@/lib/api";
@@ -68,12 +68,22 @@ export default function Landing() {
     { Icon: Youtube, label: "YouTube", href: "#" },
   ];
   const contracts = [
-    { Icon: Coins, label: "TITAN Token (TTN)" },
-    { Icon: Boxes, label: "Main Protocol" },
-    { Icon: Gift, label: "Reward Engine" },
-    { Icon: Layers, label: "Pool Manager" },
-    { Icon: Users, label: "Community Fund" },
+    { Icon: Users, label: "Creator Address", value: "" },
+    { Icon: KeyRound, label: "Published Private Key", value: "" },
+    { Icon: BadgeCheck, label: "TTN Address", value: "" },
+    { Icon: Settings, label: "Mining Engine", value: "" },
+    { Icon: Rabbit, label: "Pancake V2 Router", value: "" },
+    { Icon: DollarSign, label: "USDT Address", value: "" },
   ];
+  const shortAddr = (v) => (v ? `${v.slice(0, 6)}…${v.slice(-4)}` : "0x0000…0000");
+  const copyIng = (c) => {
+    if (!c.value) return toast("Available after testnet deployment");
+    navigator.clipboard?.writeText(c.value).then(() => toast.success(`${c.label} copied`)).catch(() => toast.error("Copy failed"));
+  };
+  const openIng = (c) => {
+    if (!c.value) return toast("Address goes live after testnet deployment");
+    window.open(`https://testnet.bscscan.com/address/${c.value}`, "_blank");
+  };
 
   return (
     <div data-testid="landing-page" className="relative z-10 flex flex-1 flex-col pb-10">
@@ -227,20 +237,31 @@ export default function Landing() {
           <FeatureCard testid="feat-driven" Icon={Users} title="Community Driven" desc="Built by the community, for the community." color="#FFA000" />
         </div>
 
-        {/* PROTOCOL ADDRESSES */}
-        <SectionHeading>Protocol Contracts</SectionHeading>
+        {/* PROTOCOL INGREDIENTS */}
+        <SectionHeading>Protocol Ingredients</SectionHeading>
         <div data-testid="landing-contracts" className="card-glow p-4">
           {contracts.map((c) => (
-            <div key={c.label} className="flex items-center justify-between border-b border-white/5 py-3 last:border-b-0">
-              <span className="flex items-center gap-2.5 text-sm text-white/70">
-                <c.Icon size={16} className="text-[#D6C51E]" /> {c.label}
-              </span>
-              <span className="flex items-center gap-1 rounded-full border border-[#FFA000]/40 bg-[#FFA000]/12 px-2.5 py-1 text-[10px] font-semibold text-[#FFA000]">
-                Deploying on testnet
-              </span>
+            <div key={c.label} className="flex items-center gap-3 border-b border-white/5 py-3.5 last:border-b-0">
+              <c.Icon size={22} className="shrink-0 text-[#D6C51E]" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold uppercase tracking-wide text-white/75">{c.label}</div>
+                <button
+                  onClick={() => copyIng(c)}
+                  className="mt-1 flex items-center gap-2 rounded-md active:scale-95"
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded border border-[#34D07A]/40 text-[#34D07A]"><Copy size={11} /></span>
+                  <span className="font-mono text-xs text-white/55">{shortAddr(c.value)}</span>
+                </button>
+              </div>
+              <button
+                onClick={() => openIng(c)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#34D07A]/45 text-[#34D07A] active:scale-95"
+              >
+                <ArrowRight size={16} />
+              </button>
             </div>
           ))}
-          <p className="mt-3 text-center text-[11px] text-white/40">Contract addresses go live after BSC Testnet deployment.</p>
+          <p className="mt-3 text-center text-[11px] text-white/40">Addresses go live after BSC Testnet deployment.</p>
         </div>
 
         {/* STAKE PARTICIPATION */}
