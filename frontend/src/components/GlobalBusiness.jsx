@@ -27,7 +27,7 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1 text-[10px] text-white/40">
+        <span className="flex min-w-0 items-center gap-1 rounded-full border border-[#0AA84F]/30 bg-[#0AA84F]/8 px-2 py-1 text-[10px] text-white/40">
           <span className="shrink-0">resets</span>
           <Countdown target={reset} testid={resetTestid} />
           <span className="shrink-0 text-white/30">UTC</span>
