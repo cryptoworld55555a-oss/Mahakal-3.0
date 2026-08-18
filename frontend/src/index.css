@@ -7,7 +7,7 @@
 html,
 body,
 #root {
-  background-color: #050711;
+  background-color: #05080F;
 }
 
 body {
@@ -19,11 +19,10 @@ body {
 }
 
 ::selection {
-  background: rgba(0, 229, 255, 0.25);
+  background: rgba(47, 107, 255, 0.3);
   color: #fff;
 }
 
-/* Slim scrollbar */
 ::-webkit-scrollbar {
   width: 0;
   background: transparent;
@@ -31,12 +30,12 @@ body {
 
 @layer base {
   :root {
-    --background: 230 60% 4%;
+    --background: 222 55% 4%;
     --foreground: 0 0% 100%;
-    --card: 230 40% 8%;
+    --card: 222 45% 8%;
     --card-foreground: 0 0% 100%;
-    --primary: 187 100% 50%;
-    --primary-foreground: 230 60% 4%;
+    --primary: 222 100% 59%;
+    --primary-foreground: 222 55% 4%;
     --border: 0 0% 100%;
     --radius: 1rem;
   }

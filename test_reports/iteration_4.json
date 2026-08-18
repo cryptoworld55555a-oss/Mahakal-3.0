@@ -1,0 +1,28 @@
+{
+  "summary": "Frontend-only regression test of the TITAN electric-blue re-theme at 360/390/430px (backend not re-run per request). Verified dashboard order (Total Supply hero -> Creator Balance -> Reward Pools 2x2 -> Total Activated Users), new Header (title + DeFi Platform, Connect Wallet, bell, menu dropdown with menu-connect/menu-copy/menu-disconnect), demo wallet SIWE connect, address-copy toast, activation flow (min-$10 validation + $50 activation), live pool countdowns, bottom nav Coming Soon placeholders, session persistence after reload, coin image render and no horizontal scroll. All 11 requested flows passed functionally; only one cosmetic header layout issue found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Header (mobile <=390px)", "issues": ["Top header row is cramped: the 'Connect Wallet' label wraps to two lines and visually overflows the fixed h-11 (44px) pill (measured btn 120x44 at 390px, 107x44 at 360px) - add whitespace-nowrap / shorten to 'Connect' or reduce padding.", "The 'DEFI PLATFORM' subtitle wraps onto two lines (span height 32px instead of ~12px), breaking the intended one-line TITAN + subtitle stack; add whitespace-nowrap or reduce letter-spacing/width pressure from the 4 right-side controls."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix header crowding at <=390px: prevent 'Connect Wallet' button label and the 'DeFi Platform' subtitle from wrapping (whitespace-nowrap / tighter tracking / smaller bell+menu buttons)."
+  ],
+  "critical_code_review_comments": [
+    "Header.jsx header-bell button has no onClick handler (dead control) - either wire a notifications action or mark it visually as informational.",
+    "Header dropdown closes only on mousedown outside; consider Escape-key close for accessibility.",
+    "Dashboard.jsx COIN_URL is a hardcoded remote asset URL; a network failure leaves an empty hero area with no fallback/onError handling."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (unchanged per request)", "frontend": "100% functional (11/11 flows), 1 cosmetic design issue"},
+  "seed_data_creation": "Two demo wallets were created via connect-demo-btn; one was activated with $50 (UID TTN100029) which incremented activated users 8 -> 9 and creator balance $212,581 -> $212,591 in the Mongo demo ledger.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Wallet-only; demo wallet via connect-demo-btn (new random address per connect)",
+  "context_for_next_testing_agent": "Verified evidence: dashboard order tops (supply 112, creator 316, daily/weekly 511, monthly/community ~636, users 768); pool countdowns tick (daily 04:54:43 -> 04:54:41, weekly '5d ...', monthly '13d ...'); Community Fund shows USDT and no countdown; connect-walletconnect-btn correctly disabled; coin image loads (1024x1024, mix-blend-screen, no checkerboard); no horizontal overflow at 360/390/430 (scrollWidth == clientWidth); activate card renders above hero when Inactive; amount 5 -> 'Minimum activation is $10 USDT' toast and status stays Inactive; quick-50 + submit -> Active badge, card removed, stats refreshed; reload keeps connected + Active; menu-disconnect returns header to Connect Wallet and removes uid-status-row. Note: ComingSoon copy is '<module> - landing soon' (no literal 'Coming Soon' string) - assert on data-testid=coming-soon instead of text.",
+  "rca_of_the_issue": "Header layout: the flex row now holds Connect Wallet + bell + menu (3 controls, ~44px each) next to the logo block, leaving <130px for the button on a 390px viewport, so the button text and the letter-spaced 'DeFi Platform' subtitle wrap."
+}

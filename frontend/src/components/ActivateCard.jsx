@@ -33,11 +33,11 @@ export default function ActivateCard({ min = 10, onActivated }) {
       data-testid="activate-card"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-3xl border border-[#00E5FF]/25 bg-gradient-to-br from-[#0F1326] to-[#0A0D1C] p-5 shadow-[0_8px_32px_rgba(0,229,255,0.08)]"
+      className="relative overflow-hidden rounded-3xl border border-[#2F6BFF]/25 bg-gradient-to-br from-[#0B1530] to-[#070C1A] p-5 shadow-[0_8px_32px_rgba(47,107,255,0.12)]"
     >
-      <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[#00E5FF]/15 blur-2xl" />
+      <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-[#2F6BFF]/20 blur-2xl" />
       <div className="mb-1 flex items-center gap-2">
-        <Rocket size={16} className="text-[#00E5FF]" />
+        <Rocket size={16} className="text-[#4F8DFF]" />
         <span className="text-sm font-semibold text-white">Activate Your ID</span>
       </div>
       <p className="mb-4 text-xs text-white/50">
@@ -52,7 +52,7 @@ export default function ActivateCard({ min = 10, onActivated }) {
             onClick={() => setAmount(String(q))}
             className={`flex-1 rounded-xl border py-2 text-sm font-semibold transition-all active:scale-95 ${
               Number(amount) === q
-                ? "border-[#00E5FF]/40 bg-[#00E5FF]/10 text-[#00E5FF]"
+                ? "border-[#2F6BFF]/50 bg-[#2F6BFF]/15 text-[#4F8DFF]"
                 : "border-white/10 bg-white/5 text-white/60"
             }`}
           >
@@ -80,7 +80,7 @@ export default function ActivateCard({ min = 10, onActivated }) {
         data-testid="activate-submit-btn"
         disabled={busy}
         onClick={submit}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#22d3ee] font-bold text-[#050711] transition-all active:scale-[0.98] disabled:opacity-60"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2F6BFF] to-[#4F8DFF] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-60"
       >
         {busy ? <Loader2 size={18} className="animate-spin" /> : "Activate Now"}
       </button>

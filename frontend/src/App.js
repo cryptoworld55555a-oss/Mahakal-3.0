@@ -16,10 +16,10 @@ function App() {
   const [tab, setTab] = useState("dashboard");
 
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col overflow-x-hidden bg-[#050711] pb-24 text-white shadow-2xl">
-      {/* Ambient glow */}
-      <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-72 -translate-x-1/2 rounded-full bg-[#9D4EDD]/20 blur-[100px]" />
-      <div className="pointer-events-none absolute right-0 top-24 h-40 w-40 rounded-full bg-[#00E5FF]/10 blur-[90px]" />
+    <div className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col overflow-x-hidden bg-[#05080F] pb-24 text-white shadow-2xl">
+      {/* Ambient blue glow */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-80 -translate-x-1/2 rounded-full bg-[#2F6BFF]/20 blur-[110px]" />
+      <div className="pointer-events-none absolute right-0 top-32 h-40 w-40 rounded-full bg-[#1E40AF]/25 blur-[90px]" />
 
       <div className="relative z-10 flex flex-1 flex-col">
         <Header />

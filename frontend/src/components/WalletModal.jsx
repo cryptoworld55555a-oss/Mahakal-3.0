@@ -11,29 +11,20 @@ const options = [
     label: "WalletConnect",
     desc: "Scan with any mobile wallet",
     icon: QrCode,
-    accent: "cyan",
   },
   {
     id: "injected",
     label: "MetaMask / Browser",
     desc: "Use an injected wallet",
     icon: Wallet,
-    accent: "purple",
   },
   {
     id: "demo",
     label: "Demo Wallet (Testnet)",
     desc: "Try the app instantly — no extension",
     icon: FlaskConical,
-    accent: "gold",
   },
 ];
-
-const accentMap = {
-  cyan: "text-[#00E5FF] border-[#00E5FF]/30 bg-[#00E5FF]/10",
-  purple: "text-[#9D4EDD] border-[#9D4EDD]/30 bg-[#9D4EDD]/10",
-  gold: "text-[#D4AF37] border-[#D4AF37]/30 bg-[#D4AF37]/10",
-};
 
 export default function WalletModal({ open, onClose }) {
   const { connect, connecting } = useWallet();
@@ -48,7 +39,7 @@ export default function WalletModal({ open, onClose }) {
       {open && (
         <motion.div
           data-testid="wallet-modal-overlay"
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -56,7 +47,7 @@ export default function WalletModal({ open, onClose }) {
         >
           <motion.div
             data-testid="wallet-modal"
-            className="w-full max-w-[430px] rounded-t-3xl border-t border-white/10 bg-[#0A0D1C] p-5 pb-8"
+            className="w-full max-w-[430px] rounded-t-3xl border-t border-[#2F6BFF]/20 bg-[#0A1120] p-5 pb-8"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -85,9 +76,9 @@ export default function WalletModal({ open, onClose }) {
                     data-testid={`connect-${opt.id}-btn`}
                     disabled={disabled}
                     onClick={() => handle(opt.id)}
-                    className={`flex items-center gap-4 rounded-2xl border p-4 text-left transition-all active:scale-[0.98] disabled:opacity-40 ${accentMap[opt.accent]}`}
+                    className="flex items-center gap-4 rounded-2xl border border-[#2F6BFF]/25 bg-[#2F6BFF]/10 p-4 text-left transition-all active:scale-[0.98] disabled:opacity-40"
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-black/30">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2F6BFF]/15 text-[#4F8DFF]">
                       <Icon size={22} />
                     </span>
                     <span className="flex flex-col">
@@ -106,7 +97,7 @@ export default function WalletModal({ open, onClose }) {
             </div>
 
             {connecting && (
-              <p className="mt-4 text-center text-sm text-[#00E5FF]" data-testid="wallet-connecting">
+              <p className="mt-4 text-center text-sm text-[#4F8DFF]" data-testid="wallet-connecting">
                 Requesting signature…
               </p>
             )}

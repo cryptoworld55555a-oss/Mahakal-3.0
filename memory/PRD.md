@@ -38,6 +38,8 @@ Mobile-first DeFi dApp on BNB Smart Chain. Users activate an ID with USDT (min $
 - Module 5: Mining + Claim (PancakeSwap buy-and-send) + Profile
 
 ## Notes
+- **Theme (2026-08-18):** Re-skinned to electric-blue on near-black (#05080F) per user's reference screenshot; name stays TITAN with "DeFi Platform" subtitle; Total Token Supply hero shows a 3D blue coin (generated asset, mix-blend-screen). Header adds bell + menu dropdown (copy address / disconnect); address pill copies on click. Verified 360/390/430px, no horizontal scroll (iteration_4: 11/11 flows pass).
 - Activation is DEMO/OFF-CHAIN: backend simulates USDT deposit and mutates a seeded MongoDB ledger (no real chain / no real USDT). Dashboard balances are seeded mock values (config-driven).
 - WalletConnect live path disabled until REACT_APP_WC_PROJECT_ID is provided; Demo Wallet + MetaMask work now.
 - Tokenomics split on activation is a placeholder (creator 20%, each pool 15%, community 15%); confirm final split before on-chain.
+- Contracts compiled locally (Hardhat, solc 0.8.24 evmVersion paris, OZ 5.0.2). Deploy to BSC Testnet is pending a funded deployer key (user will test first, then mainnet).

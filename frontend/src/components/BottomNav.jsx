@@ -13,7 +13,7 @@ export default function BottomNav({ active, onChange }) {
   return (
     <nav
       data-testid="bottom-nav"
-      className="fixed bottom-0 left-1/2 z-50 flex h-20 w-full max-w-[430px] -translate-x-1/2 items-center justify-around border-t border-white/10 bg-black/80 px-2 backdrop-blur-2xl"
+      className="fixed bottom-0 left-1/2 z-50 flex h-20 w-full max-w-[430px] -translate-x-1/2 items-center justify-around border-t border-white/10 bg-[#05080F]/90 px-2 backdrop-blur-2xl"
     >
       {tabs.map((t) => {
         const Icon = t.icon;
@@ -24,12 +24,16 @@ export default function BottomNav({ active, onChange }) {
             data-testid={`nav-${t.id}`}
             onClick={() => onChange(t.id)}
             className={`flex h-full w-16 flex-col items-center justify-center gap-1.5 text-[10px] font-medium transition-colors ${
-              isActive
-                ? "text-[#00E5FF] drop-shadow-[0_0_8px_rgba(0,229,255,0.5)]"
-                : "text-white/40"
+              isActive ? "text-[#4F8DFF]" : "text-white/40"
             }`}
           >
-            <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} />
+            {isActive ? (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2F6BFF]/15 drop-shadow-[0_0_8px_rgba(47,107,255,0.6)]">
+                <Icon size={20} strokeWidth={2.2} />
+              </span>
+            ) : (
+              <Icon size={22} strokeWidth={1.8} />
+            )}
             {t.label}
           </button>
         );
