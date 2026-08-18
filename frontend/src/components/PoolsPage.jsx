@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Clock, History, XCircle, CheckCircle2 } from "lucide-react";
+import { Clock, History, XCircle, CheckCircle2, Info, X } from "lucide-react";
 import { getDashboardStats } from "@/lib/api";
 import { useWallet } from "@/context/WalletContext";
 import SectionLabel from "@/components/SectionLabel";
@@ -20,7 +20,7 @@ function ReqRow({ label, have, need, suffix = "" }) {
   );
 }
 
-function PoolCard({ p }) {
+function PoolCard({ p, onInfo, onHistory }) {
   const est = p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0;
   const qualified = p.directsHave >= p.directsNeed && p.capHave >= p.capNeed;
   return (
@@ -77,9 +77,22 @@ function PoolCard({ p }) {
 
       <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
         <span className="text-[11px] text-[#34D07A]">Does NOT reduce mining cap</span>
-        <span className="flex items-center gap-1 rounded-lg border border-[#D6C51E]/40 px-2.5 py-1 text-[11px] font-semibold text-[#D6C51E]">
-          <History size={12} /> History
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            data-testid={`pool-${p.key}-history`}
+            onClick={() => onHistory(p)}
+            className="flex items-center gap-1 rounded-lg border border-[#D6C51E]/40 px-2.5 py-1 text-[11px] font-semibold text-[#D6C51E] active:scale-95"
+          >
+            <History size={12} /> History
+          </button>
+          <button
+            data-testid={`pool-${p.key}-info`}
+            onClick={() => onInfo(p)}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-[#34D07A]/40 text-[#34D07A] active:scale-95"
+          >
+            <Info size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -88,6 +101,7 @@ function PoolCard({ p }) {
 export default function PoolsPage() {
   const { me } = useWallet();
   const [stats, setStats] = useState(null);
+  const [modal, setModal] = useState(null); // {type:'info'|'history', pool}
   useEffect(() => { getDashboardStats().then(setStats).catch(() => {}); }, []);
 
   const meta = stats?.pool_meta || {};
@@ -101,7 +115,37 @@ export default function PoolsPage() {
   return (
     <div data-testid="pools-page" className="flex flex-col gap-4 px-4 pt-4 pb-4">
       <SectionLabel center>Reward Pools</SectionLabel>
-      {pools.map((p) => <PoolCard key={p.key} p={p} />)}
+      {pools.map((p) => (
+        <PoolCard key={p.key} p={p} onInfo={setModal ? (pool) => setModal({ type: "info", pool }) : undefined} onHistory={(pool) => setModal({ type: "history", pool })} />
+      ))}
+
+      {modal && (
+        <div data-testid="pool-modal" className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={() => setModal(null)}>
+          <div className="w-full max-w-[430px] rounded-t-3xl border-t border-[#3C6B33]/60 bg-[#0A1710] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-bold grad-title">
+                {modal.pool.title} · {modal.type === "info" ? "Rules" : "History"}
+              </h3>
+              <button data-testid="pool-modal-close" onClick={() => setModal(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/60">
+                <X size={16} />
+              </button>
+            </div>
+            {modal.type === "info" ? (
+              <ul className="space-y-2 text-xs text-white/70">
+                <li>• Requires <b className="text-[#D6C51E]">{modal.pool.directsNeed}</b> direct(s) with 50+ USDT stake in this period.</li>
+                <li>• Requires available mining cap of <b className="text-[#D6C51E]">${modal.pool.capNeed}</b>.</li>
+                <li>• Share = pool balance split among all on-chain achievers.</li>
+                <li>• Claiming a pool share <b className="text-[#34D07A]">does NOT reduce</b> your mining cap.</li>
+                <li>• Estimate is live; final amount is locked when the pool closes at 00:00 UTC.</li>
+              </ul>
+            ) : (
+              <div className="py-6 text-center text-xs text-white/45">
+                No confirmed {modal.pool.title.toLowerCase()} claims found for this wallet.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
