@@ -10,7 +10,7 @@ export default function TeamReward({ me }) {
   const explorer = `${config.explorer}/address/${config.mainProtocolAddress}`;
   return (
     <div>
-      <SectionLabel>Team Reward</SectionLabel>
+      <SectionLabel center>Team Reward</SectionLabel>
       <div className="grid grid-cols-2 gap-3">
         <div data-testid="direct-reward-card" className="card-glow p-4">
           <User size={16} className="mb-2 text-[#34D07A]" />

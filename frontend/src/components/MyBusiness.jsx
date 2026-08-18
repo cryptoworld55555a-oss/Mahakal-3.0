@@ -15,7 +15,7 @@ export default function MyBusiness({ me }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionLabel>My Business</SectionLabel>
+      <SectionLabel center>My Business</SectionLabel>
 
       {/* Stake participation */}
       <div data-testid="stake-card" className="card-glow p-5">

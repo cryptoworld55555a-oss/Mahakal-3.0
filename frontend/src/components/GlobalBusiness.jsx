@@ -53,7 +53,7 @@ export default function GlobalBusiness({ stats, me }) {
   const meta = stats?.pool_meta || {};
   return (
     <div>
-      <SectionLabel>Global Business</SectionLabel>
+      <SectionLabel center>Global Business</SectionLabel>
       <div className="flex flex-col gap-3">
         <PoolCard
           testid="gb-daily-pool" icon={CalendarDays} title="Daily Pool" full

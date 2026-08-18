@@ -19,7 +19,7 @@ export default function TopHolders() {
 
   return (
     <div data-testid="top-holders">
-      <SectionLabel>Top TTN Holders</SectionLabel>
+      <SectionLabel center>Top TTN Holders</SectionLabel>
       <div className="card-glow p-4">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-xs text-white/50">Ranked by on-chain holdings</span>
