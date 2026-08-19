@@ -31,8 +31,8 @@ export default function TeamReward({ me }) {
         rel="noreferrer"
         className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-[#3C6B33]/50 bg-[#0A1710] px-4 py-3 text-xs font-semibold text-white/60 active:scale-[0.99]"
       >
-        MINING CONTRACT ON-CHAIN DATA
-        <ExternalLink size={14} className="text-[#34D07A]" />
+        <span className="grad-title font-bold">MINING CONTRACT ON-CHAIN DATA</span>
+        <ExternalLink size={14} className="text-[#D6C51E]" />
       </a>
     </div>
   );

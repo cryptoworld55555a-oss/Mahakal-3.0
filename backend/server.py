@@ -292,7 +292,7 @@ async def dashboard_stats():
 def _mock_hash(seed: str) -> str:
     r = random.Random(seed)
     hexs = "0123456789abcdef"
-    return "0x" + "".join(r.choice(hexs) for _ in range(4)) + "…" + "".join(r.choice(hexs) for _ in range(4))
+    return "0x" + "".join(r.choice(hexs) for _ in range(64))
 
 
 @api_router.get("/me/{address}")
