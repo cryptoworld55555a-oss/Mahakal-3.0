@@ -140,11 +140,13 @@ export default function Landing() {
 
           {/* Coin */}
           <div className="relative mt-6 flex justify-center">
-            <div className="pointer-events-none absolute inset-x-10 bottom-2 h-24 rounded-full bg-[#0AA84F]/25 blur-3xl" />
+            <div className="pointer-events-none absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#0AA84F]/25 blur-3xl" />
+            <div className="pointer-events-none absolute inset-x-16 bottom-4 h-16 rounded-full bg-[#D6C51E]/20 blur-2xl" />
             <motion.img
               src={COIN_HERO_URL}
               alt="TITAN coin"
-              className="relative w-56 rounded-3xl"
+              className="relative w-60"
+              style={{ mixBlendMode: "screen" }}
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             />
