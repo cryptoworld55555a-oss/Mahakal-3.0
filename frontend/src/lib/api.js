@@ -16,6 +16,7 @@ export const getMe = (address) => api.get(`/me/${address}`).then((r) => r.data);
 export const getHolders = (params) =>
   api.get("/holders", { params }).then((r) => r.data);
 export const getTeam = (address) => api.get(`/team/${address}`).then((r) => r.data);
+export const getPools = (address) => api.get(`/pools/${address}`).then((r) => r.data);
 
 // ---- Admin panel ----
 export const adminOverview = () => api.get("/admin/overview").then((r) => r.data);

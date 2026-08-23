@@ -272,3 +272,12 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
   - DEMO_ROOT monthly_qualified + owner_tier(300% cap $3000) in SAME build run (no 1-run lag), monthly_pool>0 with non-empty Merkle proofs, tree/user root == merkle/latest root.
 - FIX (tree_engine.leg_stats): binary leg IDs now count only QUALIFIED active IDs (own stake >= $50), not any active. Closes dust-gaming hole flagged by testing agent (deviation #2). Verified: 20 dust ($1) nodes no longer count; genuine DEMO_ROOT ($350 nodes) still 25 IDs/leg + qualifies.
 - OPEN (user decision): testing agent noted the live monthly rule does NOT require a separate Diamond-rank gate (reward_engine.monthly_owner_qualified is stale dead code requiring Diamond). Live rule = 10 directs + $2000 + 25 qualified IDs/leg + $5000/leg, matching user's finalized spec. Left unchanged.
+
+## [2026-08-23] AETHERA reference verified + Pools page wired to real data
+- Compared TITAN vs AETHERA live app (user-provided screenshots of Reward Pools). CONFIRMED our pool qualification EXACTLY matches AETHERA live:
+  - Daily = 1 direct($50+) + available cap $100; Weekly = 5 directs($50+) + cap $200 (both "Does NOT reduce cap").
+  - Monthly = Active + 10 directs + $2000 direct business + 25 QUALIFIED IDs each leg + $5000 carry each leg + on-chain submit. Live app does NOT require a separate Diamond-rank gate -> our engine (no Diamond gate) is correct; resolved the earlier open question.
+- NEW backend GET /api/pools/{address}: real per-user pool progress (have/need/ok per requirement), live pool balances, on-chain achievers count (from reward_snapshots breakdown), and estimate = balance/(achievers or achievers+1).
+- tree_engine breakdown now includes daily_eligible / weekly_eligible flags.
+- PoolsPage.jsx wired to /api/pools/{address}: shows real checklist with green/red per requirement, "All met" vs "N pending" (fixed 0||2 bug), generic info modal per-pool. All pools labelled "Does NOT reduce mining cap" to match deployed contract (claim buys TTN, never reduces cap; only SELL reduces cap). Verified via curl (DEMO_ROOT qualifies all 3) + screenshots.
+- NOTE for user: AETHERA infographic slide 10 labels Monthly as "reduces cap", but per your finalized model (only SELL reduces cap) our UI shows Monthly as "Does NOT reduce cap" too, consistent with the contract.

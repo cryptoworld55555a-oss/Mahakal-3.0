@@ -676,6 +676,77 @@ async def reward_tree_user(address: str):
     return {"root": snap["root"], "breakdown": bd, "proofs": proofs}
 
 
+@api_router.get("/pools/{address}")
+async def pools_for_user(address: str):
+    """Per-user pool qualification progress + live pool balances + on-chain achievers,
+    computed from the latest reward snapshot (mirrors AETHERA's Reward Pools screen)."""
+    addr = address.lower()
+    stats = await db.protocol_stats.find_one({"_id": "protocol"}) or {}
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    breakdown = snap.get("breakdown") or {}
+    bd = breakdown.get(addr, {})
+
+    # On-chain achievers = how many users currently qualify for each pool.
+    daily_ach = sum(1 for b in breakdown.values() if b.get("daily_eligible"))
+    weekly_ach = sum(1 for b in breakdown.values() if b.get("weekly_eligible"))
+    monthly_ach = sum(1 for b in breakdown.values() if b.get("monthly_qualified"))
+
+    daily_bal = round(float(stats.get("daily_pool_usdt", 0) or 0), 2)
+    weekly_bal = round(float(stats.get("weekly_pool_usdt", 0) or 0), 2)
+    monthly_bal = round(float(stats.get("monthly_pool_usdt", 0) or 0), 2)
+
+    q_directs = int(bd.get("qualified_directs", 0))
+    cap = float(bd.get("mining_cap_usd", 0))
+    dbiz = float(bd.get("direct_business_usd", 0))
+    active_directs = int(bd.get("active_directs", 0))
+    binr = bd.get("binary", {}) or {}
+    left_ids = int(binr.get("left_ids", 0)); right_ids = int(binr.get("right_ids", 0))
+    left_biz = float(binr.get("left_business_usd", 0)); right_biz = float(binr.get("right_business_usd", 0))
+    in_tree = addr in breakdown
+
+    def est(balance, achievers, qualified):
+        n = achievers + (0 if qualified else 1)
+        return round(balance / n, 2) if n > 0 else round(balance, 2)
+
+    daily_q = bool(bd.get("daily_eligible"))
+    weekly_q = bool(bd.get("weekly_eligible"))
+    monthly_q = bool(bd.get("monthly_qualified"))
+
+    return {
+        "in_tree": in_tree,
+        "daily": {
+            "balance": daily_bal, "achievers": daily_ach, "qualified": daily_q,
+            "estimate": est(daily_bal, daily_ach, daily_q),
+            "reqs": [
+                {"label": "Direct with 50+ Stake today", "have": q_directs, "need": 1, "ok": q_directs >= 1},
+                {"label": "Available mining cap", "have": round(cap, 2), "need": 100, "ok": cap >= 100, "usd": True},
+            ],
+        },
+        "weekly": {
+            "balance": weekly_bal, "achievers": weekly_ach, "qualified": weekly_q,
+            "estimate": est(weekly_bal, weekly_ach, weekly_q),
+            "reqs": [
+                {"label": "Directs with 50+ Stake this week", "have": q_directs, "need": 5, "ok": q_directs >= 5},
+                {"label": "Available mining cap", "have": round(cap, 2), "need": 200, "ok": cap >= 200, "usd": True},
+            ],
+        },
+        "monthly": {
+            "balance": monthly_bal, "achievers": monthly_ach, "qualified": monthly_q,
+            "estimate": est(monthly_bal, monthly_ach, monthly_q),
+            "reqs": [
+                {"label": "Active membership", "have": 1 if in_tree else 0, "need": 1, "ok": in_tree, "text": "Active"},
+                {"label": "Active directs (min $50)", "have": active_directs, "need": 10, "ok": active_directs >= 10},
+                {"label": "Direct business", "have": round(dbiz, 2), "need": 2000, "ok": dbiz >= 2000, "usd": True},
+                {"label": "Left qualified IDs", "have": left_ids, "need": 25, "ok": left_ids >= 25},
+                {"label": "Right qualified IDs", "have": right_ids, "need": 25, "ok": right_ids >= 25},
+                {"label": "Left matching carry", "have": round(left_biz, 2), "need": 5000, "ok": left_biz >= 5000, "usd": True},
+                {"label": "Right matching carry", "have": round(right_biz, 2), "need": 5000, "ok": right_biz >= 5000, "usd": True},
+            ],
+        },
+    }
+
+
+
 class SeedNode(BaseModel):
     uid: str
     sponsor_uid: Optional[str] = None

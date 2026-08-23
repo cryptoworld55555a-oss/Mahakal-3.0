@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clock, History, XCircle, CheckCircle2, Info, X } from "lucide-react";
-import { getDashboardStats } from "@/lib/api";
+import { getDashboardStats, getPools } from "@/lib/api";
 import { useWallet } from "@/context/WalletContext";
 import SectionLabel from "@/components/SectionLabel";
 
@@ -22,7 +22,7 @@ function ReqRow({ label, have, need, suffix = "" }) {
 }
 
 function PoolCard({ p, onInfo, onHistory }) {
-  const est = p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0;
+  const est = p.estimate != null ? p.estimate : (p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0);
   const qualified = p.reqs ? p.reqs.every((r) => r.ok) : (p.directsHave >= p.directsNeed && p.capHave >= p.capNeed);
   return (
     <div data-testid={`pool-${p.key}`} className="card-glow p-5">
@@ -53,7 +53,9 @@ function PoolCard({ p, onInfo, onHistory }) {
       <div className="mt-3 rounded-xl border border-[#3C6B33]/50 p-3">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-sm font-bold text-white">Qualification</span>
-          <span className="text-xs font-semibold text-red-400">{p.pending || 2} pending</span>
+          <span className={`text-xs font-semibold ${(p.pending ?? 0) > 0 ? "text-red-400" : "text-[#34D07A]"}`}>
+            {(p.pending ?? 0) > 0 ? `${p.pending} pending` : "All met"}
+          </span>
         </div>
         {p.reqs ? (
           p.reqs.map((r) => (
@@ -116,27 +118,49 @@ function PoolCard({ p, onInfo, onHistory }) {
 }
 
 export default function PoolsPage() {
-  const { me } = useWallet();
+  const { me, address } = useWallet();
   const [stats, setStats] = useState(null);
+  const [live, setLive] = useState(null); // real per-user pool data
   const [modal, setModal] = useState(null); // {type:'info'|'history', pool}
   useEffect(() => { getDashboardStats().then(setStats).catch(() => {}); }, []);
+  useEffect(() => {
+    if (address) getPools(address).then(setLive).catch(() => setLive(null));
+  }, [address]);
+
+  const day = Math.floor(Date.now() / 86400000) % 1000;
+  const fmtReq = (r) =>
+    r.text ? r.text : r.usd ? `$${usd(r.have)}/$${usd(r.need)}` : `${r.have}/${r.need}`;
+  const toReqs = (arr) => (arr || []).map((r) => ({ label: r.label, val: fmtReq(r), ok: r.ok }));
+  const pendingOf = (arr) => (arr || []).filter((r) => !r.ok).length;
 
   const meta = stats?.pool_meta || {};
-  const day = Math.floor(Date.now() / 86400000) % 1000;
-  const pools = [
-    { key: "daily", title: "Daily TITAN Pool", period: `Current on-chain day · ID ${day}`, balance: stats?.pools?.daily_usdt || 0, achievers: meta.daily?.qualified_ids || 0, directsLabel: "Direct with 50+ Stake today", directsHave: 0, directsNeed: 1, capHave: 0, capNeed: 100 },
-    { key: "weekly", title: "Weekly Champion Pool", period: "Current on-chain week · ID 1", balance: stats?.pools?.weekly_usdt || 0, achievers: meta.weekly?.qualified_ids || 0, directsLabel: "Directs with 50+ Stake this week", directsHave: 0, directsNeed: 5, capHave: 0, capNeed: 200 },
-    { key: "monthly", title: "Monthly Owner Club Reward", period: "Current on-chain month · ID 1", balance: stats?.pools?.monthly_usdt || 0, achievers: meta.monthly?.qualified_ids || 0, reducesCap: true, pending: 7, reqs: [
-      { label: "Active membership (min $50)", val: "Active", ok: true },
-      { label: "Active directs (min $50 each)", val: "0/10", ok: false },
-      { label: "Direct business", val: "$0/$2,000", ok: false },
-      { label: "Left qualified IDs", val: "0/25", ok: false },
-      { label: "Right qualified IDs", val: "0/25", ok: false },
-      { label: "Left matching carry", val: "$0/$5,000", ok: false },
-      { label: "Right matching carry", val: "$0/$5,000", ok: false },
-      { label: "On-chain qualification", val: "Pending", ok: false },
-    ] },
-  ];
+  const pools = live
+    ? [
+        { key: "daily", title: "Daily TITAN Pool", period: `Current on-chain day · ID ${day}`,
+          balance: live.daily.balance, achievers: live.daily.achievers, estimate: live.daily.estimate,
+          reqs: toReqs(live.daily.reqs), pending: pendingOf(live.daily.reqs) },
+        { key: "weekly", title: "Weekly Champion Pool", period: "Current on-chain week · ID 1",
+          balance: live.weekly.balance, achievers: live.weekly.achievers, estimate: live.weekly.estimate,
+          reqs: toReqs(live.weekly.reqs), pending: pendingOf(live.weekly.reqs) },
+        { key: "monthly", title: "Monthly Owner Club Reward", period: "Current on-chain month · ID 1",
+          balance: live.monthly.balance, achievers: live.monthly.achievers, estimate: live.monthly.estimate,
+          reqs: [...toReqs(live.monthly.reqs), { label: "On-chain qualification", val: live.monthly.qualified ? "Submitted" : "Pending", ok: live.monthly.qualified }],
+          pending: pendingOf(live.monthly.reqs) + (live.monthly.qualified ? 0 : 1) },
+      ]
+    : [
+        { key: "daily", title: "Daily TITAN Pool", period: `Current on-chain day · ID ${day}`, balance: stats?.pools?.daily_usdt || 0, achievers: meta.daily?.qualified_ids || 0, reqs: [{ label: "Direct with 50+ Stake today", val: "0/1", ok: false }, { label: "Available mining cap", val: "$0/$100", ok: false }], pending: 2 },
+        { key: "weekly", title: "Weekly Champion Pool", period: "Current on-chain week · ID 1", balance: stats?.pools?.weekly_usdt || 0, achievers: meta.weekly?.qualified_ids || 0, reqs: [{ label: "Directs with 50+ Stake this week", val: "0/5", ok: false }, { label: "Available mining cap", val: "$0/$200", ok: false }], pending: 2 },
+        { key: "monthly", title: "Monthly Owner Club Reward", period: "Current on-chain month · ID 1", balance: stats?.pools?.monthly_usdt || 0, achievers: meta.monthly?.qualified_ids || 0, pending: 8, reqs: [
+          { label: "Active membership", val: "Not active", ok: false },
+          { label: "Active directs (min $50)", val: "0/10", ok: false },
+          { label: "Direct business", val: "$0/$2,000", ok: false },
+          { label: "Left qualified IDs", val: "0/25", ok: false },
+          { label: "Right qualified IDs", val: "0/25", ok: false },
+          { label: "Left matching carry", val: "$0/$5,000", ok: false },
+          { label: "Right matching carry", val: "$0/$5,000", ok: false },
+          { label: "On-chain qualification", val: "Pending", ok: false },
+        ] },
+      ];
 
   return (
     <div data-testid="pools-page" className="flex flex-col gap-4 px-4 pt-4 pb-4">
@@ -165,7 +189,7 @@ export default function PoolsPage() {
                   </div>
                   <div className="rounded-xl border border-[#3C6B33]/50 p-3">
                     <div className="text-[10px] uppercase text-white/45">Your Est. Reward</div>
-                    <div className="text-lg font-bold text-[#D6C51E]">${usd2(modal.pool.balance / (modal.pool.achievers + 1))}</div>
+                    <div className="text-lg font-bold text-[#D6C51E]">${usd2(modal.pool.estimate != null ? modal.pool.estimate : modal.pool.balance / (modal.pool.achievers + 1))}</div>
                   </div>
                 </div>
                 <div className="mb-3 flex items-center justify-between rounded-xl border border-[#3C6B33]/50 p-3">
@@ -180,27 +204,23 @@ export default function PoolsPage() {
                     <span className="flex items-center gap-1 text-xs font-bold text-red-400"><XCircle size={14} /> Not qualified</span>
                   )}
                 </div>
-                {modal.pool.reqs ? (
-                  <ul className="space-y-2 text-xs text-white/70">
-                    <li>• Active membership with minimum <b className="text-[#D6C51E]">$50</b> stake.</li>
-                    <li>• <b className="text-[#D6C51E]">10</b> active directs (each min <b className="text-[#D6C51E]">$50</b> deposit).</li>
-                    <li>• Direct business of <b className="text-[#D6C51E]">$2,000</b>.</li>
-                    <li>• <b className="text-[#D6C51E]">25</b> qualified IDs on left leg &amp; <b className="text-[#D6C51E]">25</b> on right leg.</li>
-                    <li>• Matching carry of <b className="text-[#D6C51E]">$5,000</b> on each leg (left &amp; right).</li>
-                    <li>• On-chain qualification verified.</li>
-                    <li>• Share = pool balance split among all on-chain achievers.</li>
-                    <li>• Claiming this pool share <b className="text-red-400">REDUCES</b> your mining cap.</li>
-                    <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
-                  </ul>
-                ) : (
-                  <ul className="space-y-2 text-xs text-white/70">
-                    <li>• Requires <b className="text-[#D6C51E]">{modal.pool.directsNeed}</b> direct(s) with 50+ USDT stake in this period.</li>
-                    <li>• Requires available mining cap of <b className="text-[#D6C51E]">${modal.pool.capNeed}</b>.</li>
-                    <li>• Share = pool balance split among all on-chain achievers.</li>
-                    <li>• Claiming a pool share <b className="text-[#34D07A]">does NOT reduce</b> your mining cap.</li>
-                    <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
-                  </ul>
-                )}
+                {/* Live per-requirement checklist for THIS pool */}
+                <div className="mb-3 rounded-xl border border-[#3C6B33]/50 p-3">
+                  {(modal.pool.reqs || []).map((r) => (
+                    <div key={r.label} className="flex items-center justify-between py-1 text-xs">
+                      <span className="text-white/60">{r.label}</span>
+                      <span className={`flex items-center gap-1.5 font-semibold ${r.ok ? "text-[#34D07A]" : "text-red-400"}`}>
+                        {r.val} {r.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <ul className="space-y-2 text-xs text-white/70">
+                  <li>• Share = pool balance split equally among all on-chain achievers.</li>
+                  <li>• Reward is bought as TTN at the live PancakeSwap rate into your wallet.</li>
+                  <li>• Claiming <b className="text-[#34D07A]">does NOT reduce</b> your mining cap — the cap only reduces when you SELL TTN for USDT.</li>
+                  <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>
+                </ul>
               </>
             ) : (
               <div className="py-6 text-center text-xs text-white/45">

@@ -182,6 +182,8 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
                 "left_business_usd": round(left_biz[a], 6), "right_business_usd": round(right_biz[a], 6),
             },
             "monthly_qualified": monthly_qualified[a],
+            "daily_eligible": a in daily_elig,
+            "weekly_eligible": a in weekly_elig,
             "daily_pool_usd": round(d_share, 6),
             "weekly_pool_usd": round(w_share, 6),
             "monthly_pool_usd": round(m_share, 6),
