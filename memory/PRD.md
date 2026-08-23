@@ -182,3 +182,12 @@ On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permis
 - Frontend on-chain switch: fetch proof from /api/reward/tree/user, call claimMerkle via ethers; stake/sell real calls
 - Admin: post latest root on-chain (setMerkleRoot) button/flow; owner-tier qualification via monthly_owner_qualified (binary legs)
 - Multi-ID real testnet e2e with staked wallets
+
+## [2026-06] Task 1: Binary System (qualification only) — DONE + tested (iter_13: 105/105 pass)
+- User rules CONFIRMED: Binary = ONLY monthly-pool + owner-club qualification (NO matching income). Placement = sponsor chooses left/right. Monthly pool = equal split among achievers (repeats each period). ONE-TIME qualification => 300% cap permanent. Binary counted 15 levels deep.
+- tree_engine.compute(): added binary tree (binary_parent + binary_side), leg_stats() BFS 15-deep -> left/right active IDs + business. monthly_qualified = active + stake>=$50 + 10 active directs(>=$50 each) + $2000 direct business + 25 IDs each leg + $5000 business each leg. Monthly pool split equally among achievers only.
+- /reward/tree/build now persists owner_tier=true for newly qualified users (one-time -> 300% cap on next build). reducing bucket = min(level_income + monthly_share, cap).
+- seed-demo rewritten: 51-node binary network, DEMO_ROOT qualifies (10 directs/$2500, 25 IDs+$6250 each leg). Verified: build1 sets owner_tier, build2 cap=3000(300%).
+- User model: added binary_parent, binary_side. _load_network reads them.
+### Known minor/scale (non-blocking): admin-key gate is no-op unless ADMIN_API_KEY set; leg_stats O(N^2) on deep chains (memoize before scaling); monthly-pool share above a user's cap is clamped (excess not redistributed - revisit if real pool is large); merkle_roots collection grows per build (add TTL later).
+### Binary PENDING: frontend placement capture (sponsor picks left/right at register); admin view of binary legs.

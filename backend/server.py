@@ -553,6 +553,8 @@ async def _load_network():
         users.append({
             "address": u["address"].lower(),
             "sponsor": (u.get("sponsor") or None),
+            "binary_parent": (u.get("binary_parent") or None),
+            "binary_side": u.get("binary_side"),
             "stake_usd": float(u.get("total_deposited", 0) or 0),
             "owner_tier": bool(u.get("owner_tier", False)),
             "active": bool(u.get("is_active", False)),
@@ -596,6 +598,10 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
         {"_id": "latest", **snapshot, "breakdown": breakdown},
         upsert=True,
     )
+    # One-time Owner-Club: first monthly qualification grants 300% cap permanently.
+    newly = [a for a, bd in breakdown.items() if bd.get("monthly_qualified") and not bd.get("owner_tier")]
+    if newly:
+        await db.users.update_many({"address": {"$in": newly}}, {"$set": {"owner_tier": True}})
     # Store proofs per-user (avoids the 16MB single-doc limit at scale).
     await db.reward_proofs.delete_many({})
     grouped: dict = {}
@@ -634,37 +640,49 @@ class SeedNode(BaseModel):
 
 @api_router.post("/reward/tree/seed-demo")
 async def reward_tree_seed_demo(x_admin_key: Optional[str] = Header(default=None)):
-    """Wipe demo_* users and seed a small multi-ID referral network to prove the tree walk."""
+    """Wipe DEMO_* users and seed a binary network where DEMO_ROOT MONTHLY-QUALIFIES
+    (10 directs + $2000 direct business + 25 IDs & $5000 business per binary leg)."""
     _require_admin(x_admin_key)
     await db.users.delete_many({"uid": {"$regex": "^DEMO"}})
     now = datetime.now(timezone.utc)
-    # root -> a,b (directs). a -> a1,a2,a3. b -> b1. a1 -> a1x (deep level for cascade).
-    net = [
-        ("DEMO_ROOT", None, 1000, True, True, 40),   # owner tier, staked $1000
-        ("DEMO_A", "DEMO_ROOT", 500, True, False, 30),
-        ("DEMO_B", "DEMO_ROOT", 300, True, False, 20),
-        ("DEMO_A1", "DEMO_A", 200, True, False, 10),
-        ("DEMO_A2", "DEMO_A", 100, True, False, 5),
-        ("DEMO_A3", "DEMO_A", 100, False, False, 0),  # inactive direct
-        ("DEMO_B1", "DEMO_B", 150, True, False, 8),
-        ("DEMO_A1X", "DEMO_A1", 100, True, False, 3),
-    ]
-    addr_of = {uid: "0x" + f"de{i:038x}" for i, (uid, *_ ) in enumerate(net)}
-    for uid, sp, stake, active, owner, days in net:
+
+    nodes = []  # (uid, sponsor_uid, binary_parent_uid, side, stake, active, days)
+    nodes.append(("DEMO_ROOT", None, None, None, 1000, True, 40))
+
+    def build_leg(prefix, side_label):
+        uids = [f"DEMO_{prefix}{i}" for i in range(25)]
+        for i, uid in enumerate(uids):
+            if i == 0:
+                bparent, side = "DEMO_ROOT", side_label
+            else:
+                bparent = uids[(i - 1) // 2]
+                side = "left" if i % 2 == 1 else "right"
+            # First 5 of each leg are ROOT's direct sponsors (=> 10 directs, $2500 direct business)
+            sponsor = "DEMO_ROOT" if i < 5 else bparent
+            nodes.append((uid, sponsor, bparent, side, 250, True, 12))
+        return uids
+
+    build_leg("L", "left")
+    build_leg("R", "right")
+
+    addr_of = {n[0]: "0x" + f"{(i + 1):040x}" for i, n in enumerate(nodes)}
+    for uid, sp, bp, side, stake, active, days in nodes:
         activated = (now - timedelta(days=days)).isoformat() if active else None
         await db.users.insert_one({
             "id": str(uuid.uuid4()),
             "address": addr_of[uid],
             "uid": uid,
             "sponsor": addr_of[sp] if sp else None,
+            "binary_parent": addr_of[bp] if bp else None,
+            "binary_side": side,
             "total_deposited": stake,
             "is_active": active,
-            "owner_tier": owner,
+            "owner_tier": False,
             "activated_at": activated,
             "created_at": now.isoformat(),
             "last_seen": now.isoformat(),
         })
-    return {"seeded": len(net), "addresses": addr_of}
+    return {"seeded": len(nodes), "root_address": addr_of["DEMO_ROOT"], "addresses": addr_of}
 
 
 app.include_router(api_router)

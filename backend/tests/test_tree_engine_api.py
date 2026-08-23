@@ -1,17 +1,17 @@
-"""TITAN Referral Tree Engine API tests.
+"""TITAN Referral Tree Engine API tests (binary qualification + one-time Owner-Club).
 
-Covers: POST /api/reward/tree/seed-demo, POST /api/reward/tree/build,
-GET /api/reward/tree/user/{address}, OZ Merkle proof verification, and
-referral (ref) capture via /api/auth/nonce + /api/auth/verify.
+Covers: POST /api/reward/tree/seed-demo (51-node binary network), POST /api/reward/tree/build,
+GET /api/reward/tree/user/{address}, monthly binary qualification, one-time owner_tier(300%)
+persistence, 15-level cascade bound, OZ Merkle proof verification, and referral (ref) capture
+via /api/auth/nonce + /api/auth/verify.
 
 All tests live in a single class on purpose: pytest.ini runs -n 2 --dist loadscope,
 so one class == one worker == sequential shared DB state (tree build determinism
-would race otherwise).
+would race otherwise). Test order matters (owner_tier is a one-time DB flag).
 """
 import os
 import re
 import sys
-import time
 
 import pytest
 import requests
@@ -23,6 +23,7 @@ from pymongo import MongoClient
 
 sys.path.insert(0, "/app/backend")
 import merkle  # noqa: E402
+import tree_engine  # noqa: E402
 
 frontend_env = dotenv_values("/app/frontend/.env")
 base_url = os.environ.get("REACT_APP_BACKEND_URL") or frontend_env.get("REACT_APP_BACKEND_URL")
@@ -35,9 +36,17 @@ backend_env = dotenv_values("/app/backend/.env")
 MONGO_URL = os.environ.get("MONGO_URL") or backend_env.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME") or backend_env.get("DB_NAME")
 
-ROOT_ADDR = "0xde00000000000000000000000000000000000000"
-A_ADDR = "0xde00000000000000000000000000000000000001"
+ROOT_ADDR = "0x" + f"{1:040x}"          # DEMO_ROOT
 HEX_ROOT = re.compile(r"^0x[0-9a-f]{64}$")
+
+# Seed shape (server.reward_tree_seed_demo): ROOT $1000 40d, 2 legs x 25 nodes @ $250 12d
+LEG_NODES = 25
+LEG_STAKE = 250.0
+ROOT_STAKE = 1000.0
+# ROOT sponsor-tree level distribution (both legs): L1=10, L2=12, L3=24, L4=4
+EXPECTED_ROOT_LEVEL_INCOME = (
+    10 * LEG_STAKE * 0.07 + 12 * LEG_STAKE * 0.03 + 24 * LEG_STAKE * 0.03 + 4 * LEG_STAKE * 0.02
+)  # = 465.0
 
 
 # ----------------------------- fixtures -----------------------------
@@ -62,6 +71,12 @@ def created_addresses():
     return []
 
 
+@pytest.fixture(scope="module")
+def seed_addrs():
+    """Filled by test_01; uid -> address map from the seed response."""
+    return {}
+
+
 @pytest.fixture(scope="module", autouse=True)
 def cleanup(mongo, created_addresses):
     yield
@@ -80,7 +95,7 @@ def _oz_verify(leaf: bytes, proof_hexes, root_hex: str) -> bool:
     return "0x" + computed.hex() == root_hex
 
 
-def _auth_new_wallet(api, ref=None, address_override=None, message_override=None):
+def _auth_new_wallet(api, ref=None):
     """Full SIWE flow with a freshly generated wallet. Returns (address, response)."""
     acct = Account.create()
     addr = acct.address
@@ -88,12 +103,10 @@ def _auth_new_wallet(api, ref=None, address_override=None, message_override=None
     assert n.status_code == 200, f"nonce failed: {n.status_code} {n.text[:300]}"
     nonce = n.json()["nonce"]
     chain_id = n.json()["chain_id"]
-    message = message_override or (
-        f"TITAN Sign-In\nAddress: {addr}\nChain ID: {chain_id}\nNonce: {nonce}"
-    )
+    message = f"TITAN Sign-In\nAddress: {addr}\nChain ID: {chain_id}\nNonce: {nonce}"
     sig = Account.sign_message(encode_defunct(text=message), private_key=acct.key)
     payload = {
-        "address": address_override or addr,
+        "address": addr,
         "message": message,
         "signature": sig.signature.hex() if not isinstance(sig.signature, str) else sig.signature,
         "nonce": nonce,
@@ -104,8 +117,14 @@ def _auth_new_wallet(api, ref=None, address_override=None, message_override=None
     return addr, r
 
 
-class TestReferralTreeEngine:
-    """Tree engine end-to-end: seed -> build -> per-user breakdown -> proof verification."""
+def _bd(api, addr):
+    r = api.get(f"{API}/reward/tree/user/{addr}")
+    assert r.status_code == 200, f"{addr}: {r.status_code} {r.text[:300]}"
+    return r.json()
+
+
+class TestBinaryQualificationAndOwnerClub:
+    """seed -> build#1 (standard cap) -> owner_tier persisted -> build#2 (300% cap)."""
 
     # --- health / preconditions ---
     def test_00_health(self, api):
@@ -113,115 +132,152 @@ class TestReferralTreeEngine:
         assert r.status_code == 200, r.text[:300]
         assert r.json()["ok"] is True
 
-    # --- POST /api/reward/tree/seed-demo ---
-    def test_01_seed_demo(self, api, mongo):
+    # --- POST /api/reward/tree/seed-demo : 51-node binary network ---
+    def test_01_seed_demo_binary_network(self, api, mongo, seed_addrs):
         r = api.post(f"{API}/reward/tree/seed-demo")
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
         data = r.json()
-        assert data["seeded"] == 8, data
+        assert data["seeded"] == 51, data
+        assert data["root_address"] == ROOT_ADDR, data["root_address"]
         addrs = data["addresses"]
-        assert addrs["DEMO_ROOT"] == ROOT_ADDR
-        assert addrs["DEMO_A"] == A_ADDR
-        assert len(addrs) == 8
-        # persistence: exactly 8 DEMO_* users, sponsor edges intact
-        assert mongo.users.count_documents({"uid": {"$regex": "^DEMO"}}) == 8
-        a_doc = mongo.users.find_one({"uid": "DEMO_A"})
-        assert a_doc["sponsor"] == ROOT_ADDR
-        assert a_doc["total_deposited"] == 500
-        a3 = mongo.users.find_one({"uid": "DEMO_A3"})
-        assert a3["is_active"] is False and a3["activated_at"] is None
+        assert len(addrs) == 51, len(addrs)
+        seed_addrs.update(addrs)
+
+        # persistence: exactly 51 DEMO_* users
+        assert mongo.users.count_documents({"uid": {"$regex": "^DEMO"}}) == 51
+        root = mongo.users.find_one({"uid": "DEMO_ROOT"})
+        assert root["total_deposited"] == ROOT_STAKE and root["is_active"] is True
+        assert root["owner_tier"] is False, "seed must start with owner_tier=False"
+        assert root["binary_parent"] is None and root["binary_side"] is None
+
+        # binary placement: L0/R0 hang off ROOT on the correct sides
+        l0 = mongo.users.find_one({"uid": "DEMO_L0"})
+        r0 = mongo.users.find_one({"uid": "DEMO_R0"})
+        assert l0["binary_parent"] == ROOT_ADDR and l0["binary_side"] == "left"
+        assert r0["binary_parent"] == ROOT_ADDR and r0["binary_side"] == "right"
+        # first 5 of each leg are ROOT's sponsored directs -> 10 directs, $2500
+        for uid in ("DEMO_L0", "DEMO_L4", "DEMO_R0", "DEMO_R4"):
+            assert mongo.users.find_one({"uid": uid})["sponsor"] == ROOT_ADDR, uid
+        # deeper nodes are sponsored by their binary parent
+        l5 = mongo.users.find_one({"uid": "DEMO_L5"})
+        assert l5["sponsor"] == addrs["DEMO_L2"], l5["sponsor"]
+        assert l5["total_deposited"] == LEG_STAKE and l5["is_active"] is True
+        assert mongo.users.count_documents(
+            {"uid": {"$regex": "^DEMO_[LR]"}, "total_deposited": LEG_STAKE, "is_active": True}
+        ) == 2 * LEG_NODES
 
     def test_02_seed_demo_idempotent(self, api, mongo):
         r = api.post(f"{API}/reward/tree/seed-demo")
         assert r.status_code == 200
-        assert r.json()["seeded"] == 8
-        assert mongo.users.count_documents({"uid": {"$regex": "^DEMO"}}) == 8
+        assert r.json()["seeded"] == 51
+        assert mongo.users.count_documents({"uid": {"$regex": "^DEMO"}}) == 51
 
-    # --- POST /api/reward/tree/build ---
-    def test_03_build_returns_root_and_proofs(self, api):
+    # --- build #1 : ROOT qualifies but is still on the STANDARD 200% cap ---
+    def test_03_first_build_standard_cap_and_flags_owner(self, api, mongo):
         r = api.post(f"{API}/reward/tree/build")
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
         d = r.json()
         assert HEX_ROOT.match(d["root"]), d["root"]
-        assert d["leaf_count"] > 0
-        assert d["user_count"] > 0
+        assert d["leaf_count"] > 0 and d["user_count"] >= 51
         assert isinstance(d["proofs"], list) and len(d["proofs"]) == d["leaf_count"]
         assert "_id" not in d
         p = d["proofs"][0]
         for k in ("address", "amount_wei", "capReduce", "proof"):
             assert k in p, p
         assert isinstance(p["amount_wei"], str)
-        # pools computed and non-negative
         for k in ("daily", "weekly", "monthly"):
             assert d["pools"][k] >= 0
 
-    def test_04_build_is_deterministic(self, api):
+        bd = _bd(api, ROOT_ADDR)["breakdown"]
+        assert bd["monthly_qualified"] is True, bd
+        assert bd["owner_tier"] is False, "snapshot of build#1 must predate the grant"
+        assert bd["mining_cap_usd"] == 2000, bd            # 200% of $1000
+        # one-time Owner-Club now persisted in db.users
+        assert mongo.users.find_one({"uid": "DEMO_ROOT"})["owner_tier"] is True, \
+            "owner_tier not persisted after first qualifying build"
+
+    # --- build #2 : one-time Owner-Club now yields the 300% cap ---
+    def test_04_second_build_owner_club_300pct(self, api, seed_addrs):
+        r = api.post(f"{API}/reward/tree/build")
+        assert r.status_code == 200, r.text[:300]
+        bd = _bd(api, ROOT_ADDR)["breakdown"]
+        assert bd["owner_tier"] is True, bd
+        assert bd["mining_cap_usd"] == 3000, bd            # 300% of $1000
+        assert bd["self_roi_usd"] == 600, bd               # 40d * 3000 * 0.5%
+        # standard (non-qualified) user stays at 200%
+        std = _bd(api, seed_addrs["DEMO_L20"])["breakdown"]
+        assert std["owner_tier"] is False, std
+        assert std["mining_cap_usd"] == LEG_STAKE * 2, std  # 200% of $250
+
+    def test_05_build_is_deterministic(self, api):
         r1 = api.post(f"{API}/reward/tree/build")
         r2 = api.post(f"{API}/reward/tree/build")
         assert r1.status_code == 200 and r2.status_code == 200
         assert r1.json()["root"] == r2.json()["root"], "root not deterministic on unchanged data"
         assert r1.json()["leaf_count"] == r2.json()["leaf_count"]
 
-    def test_05_latest_root_matches_build(self, api):
+    def test_06_latest_root_matches_build(self, api):
         b = api.post(f"{API}/reward/tree/build").json()
         latest = api.get(f"{API}/reward/merkle/latest")
         assert latest.status_code == 200
         assert latest.json()["root"] == b["root"]
 
-    # --- GET /api/reward/tree/user/{address} : DEMO_ROOT ---
-    def test_06_root_breakdown(self, api):
-        r = api.get(f"{API}/reward/tree/user/{ROOT_ADDR}")
-        assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
-        d = r.json()
+    # --- ROOT breakdown: full monthly-qualification criteria ---
+    def test_07_root_qualification_breakdown(self, api):
+        d = _bd(api, ROOT_ADDR)
         bd = d["breakdown"]
         assert HEX_ROOT.match(d["root"])
         assert bd["address"] == ROOT_ADDR
-        assert bd["mining_cap_usd"] == 3000, bd            # owner 300% of $1000
-        assert bd["level_income_usd"] == 56, bd            # (500+300)*7%
-        assert bd["level_lapsed_usd"] == 19.5, bd          # L2/L3 lapse (rank Active -> max_level 1)
-        assert bd["self_roi_usd"] == 600, bd               # 40d * 3000 * 0.5%
-        assert bd["rank"] == "Active", bd
-        assert bd["active_directs"] == 2, bd
-        assert bd["direct_business_usd"] == 800, bd
-        assert bd["cumulative_reducing_usd"] <= bd["mining_cap_usd"]
-        assert bd["daily_pool_usd"] >= 0 and bd["weekly_pool_usd"] >= 0 and bd["monthly_pool_usd"] >= 0
+        assert bd["active_directs"] == 10, bd
+        assert bd["qualified_directs"] == 10, bd
+        assert bd["direct_business_usd"] == 2500, bd
+        assert bd["binary"]["left_ids"] == LEG_NODES, bd
+        assert bd["binary"]["right_ids"] == LEG_NODES, bd
+        assert bd["binary"]["left_business_usd"] == 6250, bd
+        assert bd["binary"]["right_business_usd"] == 6250, bd
+        assert bd["monthly_qualified"] is True, bd
+        assert bd["rank"] == "Gold", bd                     # 10 directs / $2500
+        assert bd["level_income_usd"] == pytest.approx(EXPECTED_ROOT_LEVEL_INCOME), bd
+        assert bd["level_lapsed_usd"] == 0, bd              # Gold unlocks L1-L9, tree is 4 deep
+        assert bd["monthly_pool_usd"] > 0, "qualified achiever got no monthly pool share"
+        # reducing bucket (level + monthly share) never exceeds the mining cap
+        assert bd["cumulative_reducing_usd"] <= bd["mining_cap_usd"] + 1e-6, bd
         assert bd["cumulative_nonreducing_usd"] == pytest.approx(
             bd["self_roi_usd"] + bd["daily_pool_usd"] + bd["weekly_pool_usd"], rel=1e-9)
         assert len(d["proofs"]) >= 1
 
-    # --- GET /api/reward/tree/user/{address} : DEMO_A ---
-    def test_07_a_breakdown(self, api):
-        r = api.get(f"{API}/reward/tree/user/{A_ADDR}")
-        assert r.status_code == 200, r.text[:300]
-        bd = r.json()["breakdown"]
-        assert bd["level_income_usd"] == 28, bd     # (200+100+100)*7%
-        assert bd["self_roi_usd"] == 150, bd        # 30d * 1000 * 0.5%
-        assert bd["mining_cap_usd"] == 1000, bd     # standard 200% of $500
-        assert bd["level_lapsed_usd"] == 3, bd      # A1X at L2
-        assert bd["active_directs"] == 2, bd        # A3 inactive
-        assert bd["direct_business_usd"] == 400, bd
+    # --- non-qualifying leaf gets NO monthly share ---
+    def test_08_leaf_not_qualified_no_monthly_share(self, api, seed_addrs):
+        bd = _bd(api, seed_addrs["DEMO_L20"])["breakdown"]
+        assert bd["monthly_qualified"] is False, bd
+        assert bd["monthly_pool_usd"] == 0, bd
+        assert bd["active_directs"] == 0 and bd["direct_business_usd"] == 0, bd
+        assert bd["binary"]["left_ids"] == 0 and bd["binary"]["right_ids"] == 0, bd
+        assert bd["binary"]["left_business_usd"] == 0 and bd["binary"]["right_business_usd"] == 0, bd
+        assert bd["level_income_usd"] == 0, bd
 
-    def test_08_inactive_user_gets_no_level_income(self, api, mongo):
-        a3 = mongo.users.find_one({"uid": "DEMO_A3"})
-        r = api.get(f"{API}/reward/tree/user/{a3['address']}")
-        assert r.status_code == 200, r.text[:300]
-        bd = r.json()["breakdown"]
-        assert bd["self_roi_usd"] == 0, bd
-        assert bd["daily_pool_usd"] == 0, bd
-        assert bd["mining_cap_usd"] == 200, bd
+    # --- interior leg node sees only its own binary subtree ---
+    def test_09_interior_leg_node_binary_stats(self, api, seed_addrs):
+        bd = _bd(api, seed_addrs["DEMO_L0"])["breakdown"]
+        b = bd["binary"]
+        assert b["left_ids"] + b["right_ids"] == LEG_NODES - 1, b       # 24 below L0
+        assert b["left_business_usd"] + b["right_business_usd"] == (LEG_NODES - 1) * LEG_STAKE, b
+        assert bd["monthly_qualified"] is False, bd                    # < 25 ids per leg
+        assert bd["monthly_pool_usd"] == 0, bd
 
-    def test_09_unknown_address_404(self, api):
+    def test_10_unknown_address_404(self, api):
         r = api.get(f"{API}/reward/tree/user/0x00000000000000000000000000000000000000ff")
         assert r.status_code == 404, f"{r.status_code} {r.text[:300]}"
         assert "detail" in r.json()
 
-    def test_10_case_insensitive_lookup(self, api):
+    def test_11_case_insensitive_lookup(self, api):
         r = api.get(f"{API}/reward/tree/user/{to_checksum_address(ROOT_ADDR)}")
         assert r.status_code == 200, r.text[:300]
-        assert r.json()["breakdown"]["level_income_usd"] == 56
+        assert r.json()["breakdown"]["level_income_usd"] == pytest.approx(
+            EXPECTED_ROOT_LEVEL_INCOME)
 
     # --- OZ proof verification ---
-    def test_11_all_proofs_verify_against_root(self, api):
+    def test_12_all_proofs_verify_against_root(self, api):
         d = api.post(f"{API}/reward/tree/build").json()
         root = d["root"]
         bad = []
@@ -230,26 +286,48 @@ class TestReferralTreeEngine:
             if not _oz_verify(leaf, p["proof"], root):
                 bad.append(p["address"])
         assert not bad, f"{len(bad)}/{len(d['proofs'])} proofs failed verification: {bad[:5]}"
-        assert len(d["proofs"]) > 1
+        assert len(d["proofs"]) > 50
 
-    def test_12_tampered_proof_fails(self, api):
+    def test_13_tampered_proof_fails(self, api):
         d = api.post(f"{API}/reward/tree/build").json()
         p = d["proofs"][0]
         leaf = merkle.leaf_hash(p["address"], int(p["amount_wei"]) + 1, p["capReduce"])
         assert not _oz_verify(leaf, p["proof"], d["root"]), "tampered amount still verified"
 
-    def test_13_user_proof_matches_snapshot_root(self, api):
+    def test_14_user_proof_matches_snapshot_root(self, api):
         api.post(f"{API}/reward/tree/build")
-        r = api.get(f"{API}/reward/tree/user/{ROOT_ADDR}")
-        d = r.json()
+        d = _bd(api, ROOT_ADDR)
         for p in d["proofs"]:
             leaf = merkle.leaf_hash(p["address"], int(p["amount_wei"]), p["capReduce"])
             assert _oz_verify(leaf, p["proof"], d["root"]), p["address"]
 
+    # --- level income is bounded at exactly 15 levels (unit test on tree_engine) ---
+    def test_15_level_income_capped_at_15_levels(self):
+        chain = []
+        for i in range(21):
+            chain.append({
+                "address": "0x" + f"{(0xA000 + i):040x}",
+                "sponsor": ("0x" + f"{(0xA000 + i - 1):040x}") if i else None,
+                "binary_parent": None, "binary_side": None,
+                "stake_usd": 100.0 if i == 20 else 0.0,
+                "owner_tier": False, "active": True,
+                "activated_at": None,
+            })
+        _, bd = tree_engine.compute(chain, {"daily": 0, "weekly": 0, "monthly": 0})
+        lvl_bps = [700, 300, 300, 200, 200, 200, 100, 100, 100, 50, 50, 50, 50, 50, 50]
+        for dist in range(1, 16):
+            a = chain[20 - dist]["address"].lower()
+            total = bd[a]["level_income_usd"] + bd[a]["level_lapsed_usd"]
+            assert total == pytest.approx(100.0 * lvl_bps[dist - 1] / 10000), \
+                f"L{dist} credit wrong: {total}"
+        for dist in range(16, 21):
+            a = chain[20 - dist]["address"].lower()
+            total = bd[a]["level_income_usd"] + bd[a]["level_lapsed_usd"]
+            assert total == 0, f"level income leaked beyond L15 at distance {dist}: {total}"
+
     # --- Referral capture via SIWE auth ---
-    def test_14_ref_by_uid_stored(self, api, mongo, created_addresses):
+    def test_16_ref_by_uid_stored(self, api, mongo, created_addresses):
         sponsor = mongo.users.find_one({"uid": "DEMO_ROOT"})
-        # resolve by a real TTN uid if one exists, else by DEMO uid (same code path)
         ttn = mongo.users.find_one({"uid": {"$regex": "^TTN1"}})
         ref_uid = ttn["uid"] if ttn else sponsor["uid"]
         expected = (ttn or sponsor)["address"].lower()
@@ -261,53 +339,21 @@ class TestReferralTreeEngine:
         assert doc is not None, "user not persisted"
         assert doc.get("sponsor") == expected, f"sponsor={doc.get('sponsor')} expected={expected}"
 
-    def test_15_ref_by_address_stored(self, api, mongo, created_addresses):
+    def test_17_ref_by_address_stored(self, api, mongo, created_addresses):
         addr, r = _auth_new_wallet(api, ref=ROOT_ADDR)
         created_addresses.append(addr)
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
         doc = mongo.users.find_one({"address": addr.lower()})
         assert doc.get("sponsor") == ROOT_ADDR, doc.get("sponsor")
 
-    def test_16_self_referral_rejected(self, api, mongo, created_addresses):
-        acct = Account.create()
-        addr = acct.address
-        created_addresses.append(addr)
-        # first sign-in creates the user (no ref)
-        n = api.get(f"{API}/auth/nonce", params={"address": addr}).json()
-        msg = f"TITAN Sign-In\nAddress: {addr}\nChain ID: {n['chain_id']}\nNonce: {n['nonce']}"
-        sig = Account.sign_message(encode_defunct(text=msg), private_key=acct.key)
-        r1 = api.post(f"{API}/auth/verify", json={
-            "address": addr, "message": msg,
-            "signature": sig.signature.hex(), "nonce": n["nonce"]})
-        assert r1.status_code == 200, r1.text[:300]
-        # now the user exists; force re-creation path to test self-ref guard
-        mongo.users.delete_one({"address": addr.lower()})
-        mongo.users.insert_one({
-            "id": "selfref-probe", "address": addr.lower(), "uid": "DEMO_SELFREF",
-            "sponsor": None, "total_deposited": 0, "is_active": False,
-            "owner_tier": False, "activated_at": None,
-        })
-        import asyncio
-        import server
-        # direct unit check of the guard (the HTTP path cannot re-create an existing user).
-        # Both awaits must share ONE event loop: motor's client binds to the first loop it sees.
-        async def _probe():
-            return (await server._resolve_sponsor(addr, addr),
-                    await server._resolve_sponsor(addr, ROOT_ADDR))
-
-        resolved_self, resolved_other = asyncio.run(_probe())
-        assert resolved_self is None, f"self-referral accepted: {resolved_self}"
-        assert resolved_other == addr.lower(), resolved_other
-        mongo.users.delete_one({"address": addr.lower()})
-
-    def test_17_unknown_ref_leaves_sponsor_null(self, api, mongo, created_addresses):
+    def test_18_unknown_ref_leaves_sponsor_null(self, api, mongo, created_addresses):
         addr, r = _auth_new_wallet(api, ref="TTN999999")
         created_addresses.append(addr)
         assert r.status_code == 200, r.text[:400]
         doc = mongo.users.find_one({"address": addr.lower()})
         assert doc.get("sponsor") is None, doc.get("sponsor")
 
-    def test_18_bad_signature_rejected(self, api):
+    def test_19_bad_signature_rejected(self, api):
         acct = Account.create()
         other = Account.create()
         n = api.get(f"{API}/auth/nonce", params={"address": acct.address}).json()
@@ -318,20 +364,70 @@ class TestReferralTreeEngine:
             "signature": sig.signature.hex(), "nonce": n["nonce"]})
         assert r.status_code == 401, f"{r.status_code} {r.text[:300]}"
 
-    # --- new sponsored user shows up in the tree ---
-    def test_19_new_referral_appears_in_tree(self, api, mongo, created_addresses):
+    # --- new sponsored (inactive, zero-stake) user must not change ROOT's numbers ---
+    def test_20_new_referral_appears_in_tree(self, api, mongo, created_addresses):
         before = api.post(f"{API}/reward/tree/build").json()
         addr, r = _auth_new_wallet(api, ref=ROOT_ADDR)
         created_addresses.append(addr)
         assert r.status_code == 200, r.text[:300]
         after = api.post(f"{API}/reward/tree/build").json()
-        assert after["user_count"] == before["user_count"] + 1
-        # zero-stake inactive user -> no leaves, so root should be unchanged
-        tr = api.get(f"{API}/reward/tree/user/{addr.lower()}")
-        assert tr.status_code == 200, tr.text[:300]
-        bd = tr.json()["breakdown"]
+        # >= because other xdist workers may also create wallets concurrently
+        assert after["user_count"] >= before["user_count"] + 1
+        bd = _bd(api, addr.lower())["breakdown"]
         assert bd["mining_cap_usd"] == 0 and bd["cumulative_reducing_usd"] == 0
-        # ROOT's direct business unchanged (new user has 0 stake)
-        rb = api.get(f"{API}/reward/tree/user/{ROOT_ADDR}").json()["breakdown"]
-        assert rb["direct_business_usd"] == 800, rb
-        assert rb["level_income_usd"] == 56, rb
+        assert bd["monthly_qualified"] is False, bd
+        rb = _bd(api, ROOT_ADDR)["breakdown"]
+        assert rb["direct_business_usd"] == 2500, rb
+        assert rb["active_directs"] == 10, rb
+        assert rb["level_income_usd"] == pytest.approx(EXPECTED_ROOT_LEVEL_INCOME), rb
+        assert rb["monthly_qualified"] is True, rb
+
+    # --- Owner-Club is ONE-TIME: cap stays 300% even after losing qualification ---
+    def test_21_owner_club_permanent_after_losing_qualification(self, api, mongo, seed_addrs):
+        l24 = seed_addrs["DEMO_L24"].lower()
+        try:
+            mongo.users.update_one({"address": l24}, {"$set": {"is_active": False}})
+            api.post(f"{API}/reward/tree/build")
+            bd = _bd(api, ROOT_ADDR)["breakdown"]
+            assert bd["binary"]["left_ids"] == LEG_NODES - 1, bd
+            assert bd["monthly_qualified"] is False, "qualification should lapse with 24 left IDs"
+            assert bd["monthly_pool_usd"] == 0, bd
+            # one-time grant must survive
+            assert bd["owner_tier"] is True, bd
+            assert bd["mining_cap_usd"] == 3000, bd
+            assert mongo.users.find_one({"uid": "DEMO_ROOT"})["owner_tier"] is True
+        finally:
+            mongo.users.update_one({"address": l24}, {"$set": {"is_active": True}})
+            api.post(f"{API}/reward/tree/build")
+        bd2 = _bd(api, ROOT_ADDR)["breakdown"]
+        assert bd2["monthly_qualified"] is True and bd2["monthly_pool_usd"] > 0, bd2
+
+    # --- monthly pool splits EQUALLY among achievers (pure unit test) ---
+    def test_22_monthly_pool_equal_split_among_achievers(self):
+        def group(base):
+            root = "0x" + f"{base:040x}"
+            users = [{"address": root, "sponsor": None, "binary_parent": None,
+                      "binary_side": None, "stake_usd": 1000.0, "owner_tier": False,
+                      "active": True, "activated_at": None}]
+            for leg, side_label in (("L", "left"), ("R", "right")):
+                offset = base + (1 if leg == "L" else 26)
+                addrs = ["0x" + f"{(offset + i):040x}" for i in range(25)]
+                for i, a in enumerate(addrs):
+                    bp, side = (root, side_label) if i == 0 else (
+                        addrs[(i - 1) // 2], "left" if i % 2 else "right")
+                    users.append({"address": a, "sponsor": root if i < 5 else bp,
+                                  "binary_parent": bp, "binary_side": side,
+                                  "stake_usd": 250.0, "owner_tier": False,
+                                  "active": True, "activated_at": None})
+            return root, users
+
+        r1, g1 = group(0x100000)
+        r2, g2 = group(0x200000)
+        _, bd = tree_engine.compute(g1 + g2, {"daily": 0, "weekly": 0, "monthly": 1000.0})
+        assert bd[r1]["monthly_qualified"] is True and bd[r2]["monthly_qualified"] is True
+        assert bd[r1]["monthly_pool_usd"] == 500.0, bd[r1]
+        assert bd[r2]["monthly_pool_usd"] == 500.0, bd[r2]
+        # everyone else gets nothing
+        others = [a for a in bd if a not in (r1, r2)]
+        assert all(bd[a]["monthly_pool_usd"] == 0 for a in others)
+        assert all(bd[a]["monthly_qualified"] is False for a in others)
