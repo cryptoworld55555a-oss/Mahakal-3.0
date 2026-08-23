@@ -200,3 +200,10 @@ On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permis
 ### REMAINING BACKLOG (updated):
 DONE: Binary(1), Owner-Club 300%(2), Admin UI/root-post/owner-tier(17,18,19), reward+tree engine, Merkle claim.
 PENDING: Renewal 200d/$10 (3); Professional audit (4); Mainnet prep + renounce LAST + LP burn (5); WalletConnect real ID+QR (10); Frontend real Stake(11)/Claim-claimMerkle(12)/Sell(13); My Team real data(14); Dashboard/Mining/Pools real data(15); Referral link UI ?ref=uid (16); Multi-ID real testnet e2e (20).
+
+## [2026-06] FULL E2E real testnet proof (scripts/full-e2e.js) — ALL PASS
+Real BSC testnet, live PancakeSwap price. Deploy+liquidity(1 TTN=$10)+reserve, stake $100->cap $200.
+- CLAIM level+monthly $15 (capReduce=true): got 1.477 TTN at live price; cap 200->185 (reduced $15); price $10.09->$10.12 UP.
+- CLAIM ROI+daily+weekly $9 (capReduce=false): got 0.884 TTN; cap 185->185 UNCHANGED; price UP.
+- SELL 3 TTN: got $30.35 USDT; cap 185->154.65 (reduced by USDT received); price $10.14->$10.08 DOWN.
+Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+daily+weekly do NOT; claim=buy pushes price UP; sell pushes price DOWN + reduces cap. Reward $ math (level 25%/15lvl, ROI 0.5%/day, pools) already validated in iter10-13 (105+ unit tests). NOTE: public testnet RPC needs delays between rapid txs (stale reads/transient reverts) - script adds sleeps.
