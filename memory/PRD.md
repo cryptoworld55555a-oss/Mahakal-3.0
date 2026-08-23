@@ -125,3 +125,7 @@ NEW BSC Testnet deploy (chainId 97, replaces prior):
 - CommunityFund: 0xcfe197828AfEc35EfC5a4C7Fe346a7004CAc039b
 - MockUSDT: 0x7f54d89589bE32eE2Eb125C12624b2A8AD338789
 Verified on-chain (verify3.js): liquidity add OK, stake $100 -> cap 200, claim $10 -> tx SUCCESS, cap 190 confirmed. Restriction does NOT break protocol flows.
+
+## On-chain Withdrawal menu — 2026-06
+Header.jsx triple-line menu me "On-chain Withdrawal" option + modal added (config.js ONCHAIN: protocol/token/usdt/chainId/rpc/explorer). Shows Network, Chain ID, RPC, Protocol contract, TTN token (copyable) + BSCScan writeContract link + guide. data-testids: menu-onchain-withdraw, onchain-withdraw-modal, onchain-bscscan-link. Verified via screenshot.
+PENDING for real launch (NOT done): permissionless sell (contract change), Backend Reward Engine (level 25% cascade, matching, daily/weekly/monthly pools, rank Star/Silver/Gold/Diamond, monthly 300x), Merkle authorization, frontend on-chain switch (real stake/claim/sell), multi-ID full testing, professional audit before mainnet. App still DEMO/mock for reward flows.

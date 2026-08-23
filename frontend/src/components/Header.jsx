@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, Menu, Copy, LogOut, Check } from "lucide-react";
+import { Bell, Menu, Copy, LogOut, Check, ShieldCheck, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
-import { LOGO_URL } from "@/config";
+import { LOGO_URL, ONCHAIN } from "@/config";
 import { copyText } from "@/lib/clipboard";
 import WalletModal from "@/components/WalletModal";
 
@@ -13,6 +13,7 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -116,6 +117,16 @@ export default function Header() {
                         <Copy size={15} /> Copy address
                       </button>
                       <button
+                        data-testid="menu-onchain-withdraw"
+                        onClick={() => {
+                          setWithdrawOpen(true);
+                          setMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-3 text-sm text-[#34D07A] hover:bg-white/5"
+                      >
+                        <ShieldCheck size={15} /> On-chain Withdrawal
+                      </button>
+                      <button
                         data-testid="menu-disconnect"
                         onClick={() => {
                           disconnect();
@@ -177,6 +188,64 @@ export default function Header() {
       </header>
 
       <WalletModal open={open} onClose={() => setOpen(false)} />
+
+      {withdrawOpen && (
+        <div
+          data-testid="onchain-withdraw-modal"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setWithdrawOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-[#3C6B33]/60 bg-[#0A1710] p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-2 text-base font-bold grad-title">
+                <ShieldCheck size={18} className="text-[#34D07A]" /> On-chain Withdrawal
+              </span>
+              <button data-testid="onchain-withdraw-close" onClick={() => setWithdrawOpen(false)} className="text-white/50 active:scale-95">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mb-4 text-xs leading-relaxed text-white/60">
+              Site kabhi band ho jaye tab bhi aap seedhe blockchain se apne TTN sell karke USDT nikaal sakte ho — sirf apne wallet ke token, apne cap tak. Ye details note kar lo:
+            </p>
+            {[
+              { label: "Network", value: ONCHAIN.chainName },
+              { label: "Chain ID", value: String(ONCHAIN.chainId) },
+              { label: "RPC URL", value: ONCHAIN.rpc },
+              { label: "Protocol Contract", value: ONCHAIN.protocol },
+              { label: "TTN Token", value: ONCHAIN.token },
+            ].map((r) => (
+              <div key={r.label} className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase text-white/40">{r.label}</div>
+                  <div className="truncate font-mono text-xs text-white/80">{r.value}</div>
+                </div>
+                <button
+                  data-testid={`onchain-copy-${r.label}`}
+                  onClick={() => copyText(r.value).then(() => toast.success(`${r.label} copied`))}
+                  className="shrink-0 text-[#D6C51E] active:scale-90"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            ))}
+            <a
+              data-testid="onchain-bscscan-link"
+              href={`${ONCHAIN.explorer}/address/${ONCHAIN.protocol}#writeContract`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0AA84F] to-[#D6C51E] py-3 text-sm font-bold text-black active:scale-[0.98]"
+            >
+              Open on BSCScan (Write Contract) <ExternalLink size={15} />
+            </a>
+            <p className="mt-3 text-[11px] leading-relaxed text-white/45">
+              BSCScan → Connect wallet → <b className="text-white/70">sell</b> function → apna amount daalo → Confirm. Blocked users withdraw nahi kar sakte.
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
