@@ -43,6 +43,7 @@ describe("TITAN Protocol + Security", function () {
       owner.address
     );
     await protocol.setRouter(await router.getAddress());
+    await ttn.setWhitelisted(await protocol.getAddress(), true);
 
     // Fund router with TTN (for buy) and USDT (for sell), and give user USDT.
     await ttn.transfer(await router.getAddress(), E(100000));
@@ -111,6 +112,9 @@ describe("TITAN Protocol + Security", function () {
   it("sellMined swaps TTN->USDT and reduces cap by USD received", async () => {
     await protocol.connect(user).register();
     await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256); // cap $200, 60 TTN reserve in protocol
+    // user must hold TTN and approve protocol to sell their mined TTN
+    await ttn.transfer(user.address, E(50));
+    await ttn.connect(user).approve(await protocol.getAddress(), ethers.MaxUint256);
     const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
     const addr = await protocol.getAddress();
     const sig = await signClaim(backend, "SELL", user.address, E(30), E(1), 2, deadline, addr, chainId);
@@ -120,6 +124,13 @@ describe("TITAN Protocol + Security", function () {
     expect(await usdt.balanceOf(user.address)).to.equal(balBefore + E(30)); // 1:1
     const acc = await protocol.accountOf(user.address);
     expect(acc[3]).to.equal(E(170)); // 200 - 30
+  });
+
+  it("TTN transfers restricted: user cannot send to random wallet, only to protocol", async () => {
+    await ttn.transfer(user.address, E(10)); // owner is whitelisted -> allowed
+    await expect(ttn.connect(user).transfer(dev.address, E(1))).to.be.revertedWith("TTN: transfers restricted");
+    await ttn.connect(user).transfer(await protocol.getAddress(), E(1)); // to = protocol (whitelisted) -> allowed
+    expect(await ttn.balanceOf(await protocol.getAddress())).to.be.greaterThan(0);
   });
 
   it("stake rejects below min / non-multiples / over daily cap", async () => {

@@ -61,6 +61,7 @@ async function main() {
 
   // 6) Wiring
   await (await protocol.setRouter(ROUTER)).wait();
+  await (await ttn.setWhitelisted(await protocol.getAddress(), true)).wait();
   await (await community.setProtocol(await protocol.getAddress())).wait();
   await (await security.setApprovedContract(await protocol.getAddress(), true)).wait();
   await (await security.setSystemWallet(await security.DEV_WALLET(), devWallet)).wait();

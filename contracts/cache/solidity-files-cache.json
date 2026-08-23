@@ -381,8 +381,8 @@
       ]
     },
     "/app/contracts/contracts/TitanToken.sol": {
-      "lastModificationDate": 1787076626522,
-      "contentHash": "aa01232a91458b96b71aeb3ef94675c5",
+      "lastModificationDate": 1787469269680,
+      "contentHash": "bc01a5e23ddfcd0f859507c5537aafcb",
       "sourceName": "contracts/TitanToken.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -1072,8 +1072,8 @@
       ]
     },
     "/app/contracts/contracts/TitanProtocol.sol": {
-      "lastModificationDate": 1787467860623,
-      "contentHash": "421f1b9c23a445e1d73163b551af65fa",
+      "lastModificationDate": 1787469298516,
+      "contentHash": "3acfe22b49a085fb346efd685c555d99",
       "sourceName": "contracts/TitanProtocol.sol",
       "solcConfig": {
         "version": "0.8.24",

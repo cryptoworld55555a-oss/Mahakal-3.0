@@ -112,3 +112,16 @@ NEW BSC Testnet deployment (chainId 97, replaces earlier):
 - Router (testnet): 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
 Liquidity re-added (1000 TTN + 10000 USDT). Verified on-chain: stake $100 -> cap 200; claim $10 -> cap 190, protocol USDT 35->25 (spent buying TTN), TTN bought sent to user, claim tx SUCCESS. Mechanism CONFIRMED: cap fixed 200% (300% owner), 0.5%/day x 200 days generation (off-chain), claim delivers TTN bought at live price, sell (TTN->USDT) reduces cap by USD received (capped at available).
 Scripts added: verify2, claim-only, state2, debug.
+
+## TTN TRANSFER-RESTRICTED (no third party) + REDEPLOYED — 2026-06
+User confirmed: fixed 200k supply (no new mint); user CANNOT transfer TTN to any normal wallet — only to the approved protocol contract (for sell). No third-party/pump-dump.
+- TitanToken._update override: transfer allowed only if from OR to is whitelisted (protocol + treasury/owner). Blocks user->user and pool->outsider. setWhitelisted(owner-only). Deploy whitelists protocol.
+- TitanProtocol.claimReward: buys TTN to protocol then transfers to user (whitelist-safe). sellMined: pulls user's TTN into protocol (safeTransferFrom, user must approve) then sells on Pancake.
+- Local Hardhat: 8/8 pass (added "TTN transfers restricted: user cannot send to random wallet, only to protocol").
+NEW BSC Testnet deploy (chainId 97, replaces prior):
+- TitanToken (TTN): 0x93a457066c8C00CB34c56eb6802BfD4282728818
+- TitanProtocol: 0xC3003529750189a98158A6B73fAc1b33Cdad068c
+- TitanSecurityAdmin: 0xfcB6c96c52d1B037A9b22980aDaA179611043136
+- CommunityFund: 0xcfe197828AfEc35EfC5a4C7Fe346a7004CAc039b
+- MockUSDT: 0x7f54d89589bE32eE2Eb125C12624b2A8AD338789
+Verified on-chain (verify3.js): liquidity add OK, stake $100 -> cap 200, claim $10 -> tx SUCCESS, cap 190 confirmed. Restriction does NOT break protocol flows.

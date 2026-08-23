@@ -264,12 +264,15 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
             a.miningCap -= usdtValue;
         }
 
-        // Buy TTN live from PancakeSwap with the USD reward value and send TTN to the user.
+        // Buy TTN live from PancakeSwap with the USD reward value; receive to protocol, then send to user.
         address[] memory path = new address[](2);
         path[0] = address(usdt);
         path[1] = address(ttn);
         usdt.forceApprove(address(router), usdtValue);
-        router.swapExactTokensForTokens(usdtValue, minTtnOut, path, msg.sender, deadline);
+        uint256 ttnBefore = ttn.balanceOf(address(this));
+        router.swapExactTokensForTokens(usdtValue, minTtnOut, path, address(this), deadline);
+        uint256 bought = ttn.balanceOf(address(this)) - ttnBefore;
+        ttn.safeTransfer(msg.sender, bought);
 
         emit RewardClaimed(msg.sender, usdtValue, capReduce, nonce);
     }
@@ -295,6 +298,8 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         require(MessageHashUtils.toEthSignedMessageHash(digest).recover(signature) == signer, "bad sig");
         usedNonce[nonce] = true;
 
+        // Pull the user's mined TTN into the protocol, then sell it on PancakeSwap for USDT.
+        ttn.safeTransferFrom(msg.sender, address(this), ttnIn);
         address[] memory path = new address[](2);
         path[0] = address(ttn);
         path[1] = address(usdt);
