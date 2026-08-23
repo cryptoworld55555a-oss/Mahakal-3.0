@@ -55,6 +55,20 @@ describe("TITAN Protocol + Security", function () {
     await usdt.transfer(await protocol.getAddress(), E(1000));
   });
 
+  it("renewal: $10 fee after 200 days; isRenewalDue flips correctly", async () => {
+    await protocol.connect(user).register();
+    expect(await protocol.isRenewalDue(user.address)).to.equal(false);
+
+    await ethers.provider.send("evm_increaseTime", [201 * 24 * 3600]);
+    await ethers.provider.send("evm_mine", []);
+    expect(await protocol.isRenewalDue(user.address)).to.equal(true);
+
+    const devBefore = await usdt.balanceOf(dev.address);
+    await protocol.connect(user).renew();
+    expect((await usdt.balanceOf(dev.address)) - devBefore).to.equal(E(10)); // $10 fee to dev
+    expect(await protocol.isRenewalDue(user.address)).to.equal(false); // reset after renew
+  });
+
   it("register + stake splits 60/5/35 and grants 200% mining cap", async () => {
     await protocol.connect(user).register();
     const devBefore = await usdt.balanceOf(dev.address);

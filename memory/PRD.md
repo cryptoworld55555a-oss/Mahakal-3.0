@@ -237,3 +237,8 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 2) Add liquidity (TTN/USDT). 3) Run lock-liquidity.js -> BURN all LP to dead (permanent lock, shows 🔒 on DexScreener).
 4) Renounce TITAN TOKEN ownership ONLY. 5) Keep Protocol+Security under owner/multisig for block/pause/root ops.
 6) BscScan verify all 3 contracts (needs API key). Note: cap reduces only on SELL; claim buys TTN live.
+
+## [2026-06] Task 3 Renewal — CONTRACT done + tested (11/11)
+- Already in TitanProtocol: renewalFee=$10, renewalPeriod=200 days, renew() (charges $10 USDT to devWallet, resets renewedAt), isRenewalDue(user) view, Renewed event, admin setRenewal(fee,period).
+- Added local test (time-travel 201d): isRenewalDue false->true->false, $10 fee to dev. 11/11 pass.
+- PENDING (renewal frontend): "Renew" button + renewal-due countdown indicator -> build with Frontend On-chain Switch (11-13).
