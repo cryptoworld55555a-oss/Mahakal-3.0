@@ -208,7 +208,7 @@ export default function Header() {
               </button>
             </div>
             <p className="mb-4 text-xs leading-relaxed text-white/60">
-              Site kabhi band ho jaye tab bhi aap seedhe blockchain se apne TTN sell karke USDT nikaal sakte ho — sirf apne wallet ke token, apne cap tak. Ye details note kar lo:
+              Your funds are always yours. Even if this website ever goes offline, you can withdraw <b className="text-[#34D07A]">100% on-chain</b> — sell your TTN for <b className="text-[#D6C51E]">USDT</b> (or buy) directly from the smart contract, anytime, with zero worries. Just save these details:
             </p>
             {[
               { label: "Network", value: ONCHAIN.chainName },
@@ -240,8 +240,14 @@ export default function Header() {
             >
               Open on BSCScan (Write Contract) <ExternalLink size={15} />
             </a>
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#0AA84F]/40 bg-[#0AA84F]/10 px-3 py-2.5">
+              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#34D07A]" />
+              <p className="text-[11px] leading-relaxed text-white/70">
+                <b className="text-[#34D07A]">Fully secured &amp; non-custodial.</b> Your assets live on BNB Smart Chain, protected by audited smart contracts — no one can freeze, block or touch your on-chain withdrawal. You are always in control.
+              </p>
+            </div>
             <p className="mt-3 text-[11px] leading-relaxed text-white/45">
-              BSCScan → Connect wallet → <b className="text-white/70">sell</b> function → apna amount daalo → Confirm. Blocked users withdraw nahi kar sakte.
+              <b className="text-white/70">How to withdraw:</b> Open BSCScan → Connect your wallet → choose the <b className="text-[#D6C51E]">sell</b> (or buy) function → enter your amount → Confirm. Your withdrawal settles instantly on-chain.
             </p>
           </div>
         </div>
