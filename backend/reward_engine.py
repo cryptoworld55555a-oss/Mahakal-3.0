@@ -14,14 +14,15 @@ WEEKLY_POOL_BPS = 500         # 5% to weekly pool
 MONTHLY_DEDUCT_BPS = 1000     # 10% of daily+weekly payout -> monthly pool
 BPS = 10000
 
-# Rank -> highest level unlocked. Escalating ladder so every tier is reachable.
-# Active=L1, Star=L2-3, Silver=L4-6, Gold=L7-9, Diamond=L10-15.
+# Rank -> highest level unlocked. Thresholds match AETHERA leadership ladder.
+# Star=L2-3 (5 directs), Silver=L4-6 (5 directs+$1000), Gold=L7-9 (10 directs+$2000),
+# Diamond=L10-15 (10 directs + $2000 direct biz + $5000 15-level team business).
 RANKS = [
-    {"name": "Active",  "max_level": 1,  "directs": 0,  "direct_business": 0},
-    {"name": "Star",    "max_level": 3,  "directs": 3,  "direct_business": 500},
-    {"name": "Silver",  "max_level": 6,  "directs": 5,  "direct_business": 1000},
-    {"name": "Gold",    "max_level": 9,  "directs": 10, "direct_business": 2000},
-    {"name": "Diamond", "max_level": 15, "directs": 15, "direct_business": 5000},
+    {"name": "Active",  "max_level": 1,  "directs": 0,  "direct_business": 0,    "team_business": 0},
+    {"name": "Star",    "max_level": 3,  "directs": 5,  "direct_business": 0,    "team_business": 0},
+    {"name": "Silver",  "max_level": 6,  "directs": 5,  "direct_business": 1000, "team_business": 0},
+    {"name": "Gold",    "max_level": 9,  "directs": 10, "direct_business": 2000, "team_business": 0},
+    {"name": "Diamond", "max_level": 15, "directs": 10, "direct_business": 2000, "team_business": 5000},
 ]
 
 
@@ -34,10 +35,12 @@ def daily_roi(available_cap_usd: float) -> float:
     return available_cap_usd * DAILY_ROI_BPS / BPS
 
 
-def rank_for(active_directs: int, direct_business_usd: float) -> Dict:
+def rank_for(active_directs: int, direct_business_usd: float, team_business_usd: float = 0.0) -> Dict:
     achieved = RANKS[0]
     for r in RANKS:
-        if active_directs >= r["directs"] and direct_business_usd >= r["direct_business"]:
+        if (active_directs >= r["directs"]
+                and direct_business_usd >= r["direct_business"]
+                and team_business_usd >= r["team_business"]):
             achieved = r
     return achieved
 

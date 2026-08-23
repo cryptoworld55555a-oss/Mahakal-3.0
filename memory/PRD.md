@@ -281,3 +281,15 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - tree_engine breakdown now includes daily_eligible / weekly_eligible flags.
 - PoolsPage.jsx wired to /api/pools/{address}: shows real checklist with green/red per requirement, "All met" vs "N pending" (fixed 0||2 bug), generic info modal per-pool. All pools labelled "Does NOT reduce mining cap" to match deployed contract (claim buys TTN, never reduces cap; only SELL reduces cap). Verified via curl (DEMO_ROOT qualifies all 3) + screenshots.
 - NOTE for user: AETHERA infographic slide 10 labels Monthly as "reduces cap", but per your finalized model (only SELL reduces cap) our UI shows Monthly as "Does NOT reduce cap" too, consistent with the contract.
+
+## [2026-08-23] Leadership rank (level income) thresholds aligned to AETHERA
+- User-provided AETHERA live "Network & Referral" screen + slide 08 confirmed exact leadership ranks. Fixed reward_engine.RANKS:
+  - Star (L2-3): 5 active directs (was 3 + $500)
+  - Silver (L4-6): 5 directs + $1000 direct business (unchanged)
+  - Gold (L7-9): 10 directs + $2000 direct business (unchanged)
+  - Diamond (L10-15): 10 directs + $2000 direct business + $5000 15-level TEAM business (was 15 directs + $5000 direct)
+- reward_engine.rank_for() now takes optional team_business_usd; Diamond gated on it.
+- tree_engine computes 15-level team business (active downline stake within 15 levels) per user, passes to rank_for, adds team_business_usd to breakdown.
+- /team endpoint level reqs updated to match (Star need 5, Diamond need 10/$2000/$5000-team). qualification.unlocked now shows LEVELS unlocked (rank->max_level: Active1/Star3/Silver6/Gold9/Diamond15), tiers_unlocked kept separately.
+- Verified: rank_for unit tests, /team DEMO_ROOT = Diamond 15/15 with correct X/Y, MyTeamPage ladder screenshot matches AETHERA, /reward/simulate still correct, level income $749 unchanged (no cascade regression).
+- STILL OPEN (needs user decision, flagged earlier): 10% deduction from Direct+Level+Daily+Weekly funding the monthly owner pool (AETHERA slide 08/09/10). Currently monthly pool is a stored value; direct/level don't contribute their 10%.

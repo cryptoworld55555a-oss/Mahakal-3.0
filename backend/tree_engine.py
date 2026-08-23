@@ -66,7 +66,20 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
                 if stake >= MIN_MEMBERSHIP_USD:
                     qualified_directs[sp] += 1
 
-    rank = {a: rw.rank_for(active_directs[a], direct_business[a]) for a in by_addr}
+    # 15-level team business (sum of active downline stakes within MAX_DEPTH) -> Diamond gate.
+    team_business = defaultdict(float)
+    for u in users:
+        s = float(u.get("stake_usd", 0))
+        if s <= 0 or not u.get("active"):
+            continue
+        anc_addr = (u.get("sponsor") or "").lower()
+        lvl = 1
+        while anc_addr and anc_addr in by_addr and lvl <= MAX_DEPTH:
+            team_business[anc_addr] += s
+            anc_addr = (by_addr[anc_addr].get("sponsor") or "").lower()
+            lvl += 1
+
+    rank = {a: rw.rank_for(active_directs[a], direct_business[a], team_business[a]) for a in by_addr}
 
     # Level income: for each staking user, credit uplines L1..L15 (rank-gated, active-gated)
     level_income = defaultdict(float)
@@ -174,6 +187,7 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
             "active_directs": active_directs[a],
             "qualified_directs": qualified_directs[a],
             "direct_business_usd": round(direct_business[a], 6),
+            "team_business_usd": round(team_business[a], 6),
             "self_roi_usd": round(self_roi[a], 6),
             "level_income_usd": round(level_income[a], 6),
             "level_lapsed_usd": round(level_lapsed[a], 6),

@@ -399,6 +399,7 @@ async def team(address: str):
     rank = bd.get("rank", "Active")
     adirects = bd.get("active_directs", 0)
     dbiz = bd.get("direct_business_usd", 0)
+    tbiz = bd.get("team_business_usd", 0)
     lbiz = binary.get("left_business_usd", 0)
     rbiz = binary.get("right_business_usd", 0)
     lids = binary.get("left_ids", 0)
@@ -416,19 +417,20 @@ async def team(address: str):
         {"name": "Level 1", "sub": "Active membership", "tier": "level1", "unlocked": active,
          "status": "Active" if active else "Inactive", "reqs": []},
         {"name": "Star · Levels 2-3", "sub": "Active directs", "tier": "star", "unlocked": unlocked("Star"),
-         "reqs": [{"label": "Active directs", "have": adirects, "need": 3}]},
+         "reqs": [{"label": "Active directs", "have": adirects, "need": 5}]},
         {"name": "Silver · Levels 4-6", "sub": "Active directs · Direct business", "tier": "silver", "unlocked": unlocked("Silver"),
          "reqs": [{"label": "Active directs", "have": adirects, "need": 5},
                   {"label": "Direct business", "have": dbiz, "need": 1000, "money": True}]},
         {"name": "Gold · Levels 7-9", "sub": "Active directs · Direct business", "tier": "gold", "unlocked": unlocked("Gold"),
          "reqs": [{"label": "Active directs", "have": adirects, "need": 10},
                   {"label": "Direct business", "have": dbiz, "need": 2000, "money": True}]},
-        {"name": "Diamond · Levels 10-15", "sub": "Active directs · Direct business · Team business", "tier": "diamond", "unlocked": unlocked("Diamond"),
-         "reqs": [{"label": "Active directs", "have": adirects, "need": 15},
-                  {"label": "Direct business", "have": dbiz, "need": 5000, "money": True},
-                  {"label": "Leg business (L/R)", "have": min(lbiz, rbiz), "need": 5000, "money": True}]},
+        {"name": "Diamond · Levels 10-15", "sub": "Directs · Direct business · 15-level team business", "tier": "diamond", "unlocked": unlocked("Diamond"),
+         "reqs": [{"label": "Active directs", "have": adirects, "need": 10},
+                  {"label": "Direct business", "have": dbiz, "need": 2000, "money": True},
+                  {"label": "15-level team business", "have": tbiz, "need": 5000, "money": True}]},
     ]
     unlocked_count = sum(1 for lv in levels if lv["unlocked"])
+    levels_unlocked = {"Active": 1, "Star": 3, "Silver": 6, "Gold": 9, "Diamond": 15}.get(rank, 0) if active else 0
     return {
         "uid": doc["uid"],
         "address": addr,
@@ -445,7 +447,7 @@ async def team(address: str):
         "level_summary": {"total_team_size": lids + rids, "total_team_business_usdt": lbiz + rbiz},
         "accounting": {"direct_level_rewards_usdt": bd.get("level_income_usd", 0),
                        "lapsed_usdt": bd.get("level_lapsed_usd", 0)},
-        "qualification": {"unlocked": unlocked_count, "total": 15, "levels": levels},
+        "qualification": {"unlocked": levels_unlocked, "tiers_unlocked": unlocked_count, "total": 15, "levels": levels},
         "members": [{"uid": u.get("uid"), "address": u["address"], "active": u.get("is_active", False),
                      "stake_usdt": u.get("total_deposited", 0)} for u in direct_docs[:50]],
         "total_members": len(direct_docs),
