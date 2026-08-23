@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, Menu, Copy, LogOut, Check, ShieldCheck, ExternalLink, X } from "lucide-react";
+import { Bell, Menu, Copy, LogOut, Check, ShieldCheck, ExternalLink, X, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { LOGO_URL, ONCHAIN } from "@/config";
@@ -14,6 +14,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [showHow, setShowHow] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -246,9 +247,21 @@ export default function Header() {
                 <b className="text-[#34D07A]">Fully secured &amp; non-custodial.</b> Your assets live safely on BNB Smart Chain, protected by audited smart contracts. You always stay in full control of your funds — withdraw anytime, directly on-chain, with complete peace of mind.
               </p>
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-white/45">
-              <b className="text-white/70">How to withdraw:</b> Open BSCScan → Connect your wallet → choose the <b className="text-[#D6C51E]">sell</b> (or buy) function → enter your amount → Confirm. Your withdrawal settles instantly on-chain.
-            </p>
+            <div className="mt-3 flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-white/70">How to withdraw</span>
+              <button
+                data-testid="onchain-how-info"
+                onClick={() => setShowHow((v) => !v)}
+                className="flex h-5 w-5 items-center justify-center rounded-full border border-[#34D07A]/50 text-[#34D07A] active:scale-90"
+              >
+                <Info size={12} />
+              </button>
+            </div>
+            {showHow && (
+              <p data-testid="onchain-how-text" className="mt-2 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px] leading-relaxed text-white/60">
+                Open BSCScan → Connect your wallet → choose the <b className="text-[#D6C51E]">sell</b> (or buy) function → enter your amount → Confirm. Your withdrawal settles instantly on-chain.
+              </p>
+            )}
           </div>
         </div>
       )}
