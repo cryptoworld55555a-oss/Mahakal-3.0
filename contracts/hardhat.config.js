@@ -2,7 +2,13 @@ require("@nomicfoundation/hardhat-ethers");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("dotenv").config();
 
-const { DEPLOYER_PRIVATE_KEY, BSCSCAN_API_KEY } = process.env;
+const { DEPLOYER_PRIVATE_KEY, DEPLOYER_MNEMONIC, BSCSCAN_API_KEY } = process.env;
+
+const testnetAccounts = DEPLOYER_PRIVATE_KEY
+  ? [DEPLOYER_PRIVATE_KEY]
+  : DEPLOYER_MNEMONIC
+  ? { mnemonic: DEPLOYER_MNEMONIC }
+  : [];
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -14,12 +20,12 @@ module.exports = {
     bscTestnet: {
       url: "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
       chainId: 97,
-      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
+      accounts: testnetAccounts,
     },
     bscMainnet: {
       url: "https://bsc-dataseed.binance.org",
       chainId: 56,
-      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
+      accounts: testnetAccounts,
     },
   },
   etherscan: {

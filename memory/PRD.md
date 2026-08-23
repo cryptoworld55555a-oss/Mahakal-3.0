@@ -82,3 +82,15 @@ Contracts (/app/contracts/contracts):
 Testing: `npx hardhat test` → 7/7 passing (stake split+cap, block halts, pause halts, signed claim + nonce replay, no-cap-no-reward, sell reduces cap, stake validation). Compiles clean (solc 0.8.24, evmVersion paris, OZ 5.0.2).
 
 TODO next: level-income cascade + pool eligibility backend (off-chain signer service), EIP-712 typed signatures (currently EIP-191 packed), appreciation-on-sell exact math, deploy scripts wiring (SecurityAdmin.setApprovedContract(protocol), setSystemWallets), then BSC Testnet deploy (needs funded deployer key) + frontend on-chain switch.
+
+## BSC TESTNET DEPLOYED — 2026-06 (chainId 97)
+Deployer (throwaway, testnet-only): 0xCb64A7c9895A3807F23a23c25e0dB138b3A3e0cd
+- TitanToken (TTN): 0xa38427DA27828A72699Df34c694038921Aa19f9B
+- TitanProtocol: 0xbC55Cd51761c4369754DAc706881C983C7FA35eC
+- TitanSecurityAdmin: 0x572Fc8027F6Ad901DF785C33F4Ae9012c6b06E6c
+- CommunityFund: 0x8cF4bd0bBf10310bF4D8d81aD12dc6cc1f4e8F9B
+- MockUSDT: 0x0aAA413E7C9f7545Db77FfD3a96F7a640AB55D0F
+- PancakeSwap V2 router (testnet): 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+Deploy cmd: `npx hardhat run scripts/deploy.js --network bscTestnet`. Deployer creds in contracts/.env (DEPLOYER_MNEMONIC) — TESTNET THROWAWAY (seed was shared in chat; never use for mainnet/real funds).
+On-chain testnet tests PASSED (scripts/onchain-test.js): register OK, MockUSDT faucet+approve OK, blockUser -> stake reverted, pause(block-all) -> whenActive reverted, unblock/unpause verified (isBlocked=false, paused=false).
+NOT yet done on testnet: full stake (60% buy TTN) + claim + sell — need TTN/USDT liquidity added on PancakeSwap testnet + backend signer service. Frontend still demo (on-chain switch pending).
