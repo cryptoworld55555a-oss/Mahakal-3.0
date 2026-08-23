@@ -1072,8 +1072,8 @@
       ]
     },
     "/app/contracts/contracts/TitanProtocol.sol": {
-      "lastModificationDate": 1787469298516,
-      "contentHash": "3acfe22b49a085fb346efd685c555d99",
+      "lastModificationDate": 1787469804222,
+      "contentHash": "6909dd941ec2b8074f07860ef9330d01",
       "sourceName": "contracts/TitanProtocol.sol",
       "solcConfig": {
         "version": "0.8.24",

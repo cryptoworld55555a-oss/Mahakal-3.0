@@ -47,13 +47,15 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
 
     // -------------------------------------------------- Config (basis points)
     uint256 public constant BPS = 10_000;
-    uint256 public reserveBps = 6_000;   // 60% -> buy TTN reserve (mining contract)
-    uint256 public devBps = 500;         // 5%  -> developer fund
+    // HIGH-RISK economics are HARD-CODED (immutable) per Rule 12 — admin can NEVER change payout math.
+    uint256 public constant reserveBps = 6_000;   // 60% -> buy TTN reserve (auto-staked, locked)
+    uint256 public constant devBps = 500;         // 5%  -> developer fund
     // remaining 35% stays as USDT reward reserve, distributed via signed claims
 
-    uint256 public standardCapBps = 20_000; // 200% mining cap
-    uint256 public ownerCapBps = 30_000;    // 300% mining cap (Owner Club)
+    uint256 public constant standardCapBps = 20_000; // 200% mining cap
+    uint256 public constant ownerCapBps = 30_000;    // 300% mining cap (Owner Club)
 
+    // Low-risk operational params remain configurable.
     uint256 public minStake = 10e18;         // $10
     uint256 public maxStakePerDay = 1_000e18; // $1000/day
     uint256 public stakeStep = 10e18;        // multiples of $10
@@ -108,19 +110,6 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     }
 
     // ----------------------------------------------------------- Admin config
-    function setSplit(uint256 _reserveBps, uint256 _devBps) external onlyOwner {
-        require(_reserveBps + _devBps < BPS, "split too high");
-        reserveBps = _reserveBps;
-        devBps = _devBps;
-        emit ConfigUpdated();
-    }
-
-    function setCaps(uint256 _standardCapBps, uint256 _ownerCapBps) external onlyOwner {
-        standardCapBps = _standardCapBps;
-        ownerCapBps = _ownerCapBps;
-        emit ConfigUpdated();
-    }
-
     function setStakeLimits(uint256 _min, uint256 _maxPerDay, uint256 _step) external onlyOwner {
         require(_step > 0 && _min > 0, "bad limits");
         minStake = _min;
