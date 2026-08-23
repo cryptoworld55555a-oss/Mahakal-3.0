@@ -228,3 +228,12 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Local tests 10/10 pass after cleanup (added clean sell-reduces-cap test).
 - Current testnet deploy (0x53F27...) still has legacy funcs (harmless, signer-gated); cleaned source deploys fresh at mainnet.
 ### FREE safety plan for launch: small initial liquidity (limit exposure), keep SecurityAdmin pause + block active, admin multisig, heavy testnet coverage, run Slither each change; proper audit when funds allow.
+
+## [2026-06] Liquidity lock (LP burn) — script + testnet DEMO done
+- scripts/lock-liquidity.js: burns ALL LP tokens (TTN/USDT pair) to dead 0x...dEaD -> removeLiquidity impossible for everyone (incl owner) -> DEX trackers show locked 🔒.
+- Testnet DEMO verified: after burn, deployer LP = 0.0, dead address holds 100% of LP supply (3162.27). Liquidity permanently locked.
+### MAINNET LAUNCH RUNBOOK (user-approved order):
+1) Deploy cleaned contracts + set router/whitelist/approvedContract/community.
+2) Add liquidity (TTN/USDT). 3) Run lock-liquidity.js -> BURN all LP to dead (permanent lock, shows 🔒 on DexScreener).
+4) Renounce TITAN TOKEN ownership ONLY. 5) Keep Protocol+Security under owner/multisig for block/pause/root ops.
+6) BscScan verify all 3 contracts (needs API key). Note: cap reduces only on SELL; claim buys TTN live.
