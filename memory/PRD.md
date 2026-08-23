@@ -242,3 +242,14 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Already in TitanProtocol: renewalFee=$10, renewalPeriod=200 days, renew() (charges $10 USDT to devWallet, resets renewedAt), isRenewalDue(user) view, Renewed event, admin setRenewal(fee,period).
 - Added local test (time-travel 201d): isRenewalDue false->true->false, $10 fee to dev. 11/11 pass.
 - PENDING (renewal frontend): "Renew" button + renewal-due countdown indicator -> build with Frontend On-chain Switch (11-13).
+
+## [2026-06] Task 16 Referral DONE + chain.js foundation for 11-13
+- Task 16: refLink already `${origin}/?ref=uid`. Wired: WalletContext captures ?ref on mount -> localStorage, and passes ref to verifySignature on connect -> backend _resolve_sponsor stores sponsor. End-to-end done.
+- lib/chain.js added (foundation for 11-13): getAccount, registerOnChain, stakeOnChain (auto USDT approve), renewOnChain, claimAllRewards (fetches proofs from /reward/tree/user then claimMerkle each), sellOnChain (auto TTN approve). Uses injected MetaMask (no WalletConnect ID needed for desktop).
+- App compiles + loads fine.
+### NEXT: wire chain.js into Stake/Mining/Sell/Renew pages (11-13) + My Team/Dashboard real data (14-15). Needs real MetaMask for e2e. Task 10 WalletConnect QR needs Project ID. BscScan verify needs API key. Mainnet (5) = user runs runbook.
+
+## [2026-06] Tasks 11-13 Frontend On-chain Switch + Renew — WIRED (via injected MetaMask)
+- lib/chain.js used by UI. ActivateCard: getAccount->register if needed->stakeOnChain(USDT auto-approve)->activateId backend sync + step status. MiningPage: reads real on-chain cap/staked/renewalDue via getAccount; reward from GET /reward/tree/user (total_claimable_usd); mine-claim-btn -> claimAllRewards (fetch proofs + claimMerkle each); renew banner+btn when isRenewalDue; SellCard (data-testid sell-card/sell-amount-input/sell-submit-btn) -> sellOnChain. api.getRewardUser added.
+- App compiles + loads, no JS errors. NOTE: full UI e2e needs real MetaMask (window.ethereum) which the preview lacks; underlying contract fns are testnet-proven (full-e2e.js). getAccount fails gracefully when no wallet (cap shows 0).
+### REMAINING: 14-15 My Team + Dashboard real data (still mock getTeam/stats); 10 WalletConnect QR (needs Project ID); BscScan verify (API key); 5 mainnet (user runs runbook).

@@ -3,13 +3,15 @@ import { motion } from "framer-motion";
 import { Rocket, Loader2 } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
+import { registerOnChain, stakeOnChain, getAccount } from "@/lib/chain";
 
 const QUICK = [10, 50, 100];
 
 export default function ActivateCard({ min = 10, onActivated }) {
-  const { activateId } = useWallet();
+  const { activateId, address } = useWallet();
   const [amount, setAmount] = useState("10");
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState("");
 
   const submit = async () => {
     const val = Number(amount);
@@ -19,12 +21,23 @@ export default function ActivateCard({ min = 10, onActivated }) {
     }
     setBusy(true);
     try {
-      await activateId(val);
-      onActivated?.();
+      // 1) Ensure registered on-chain, 2) stake on-chain (buys+locks TTN), 3) record in backend tree.
+      const acc = await getAccount(address);
+      if (!acc.registered) {
+        setStep("Registering…");
+        await registerOnChain();
+      }
+      setStep("Confirm USDT + stake in wallet…");
+      const txHash = await stakeOnChain(val, address);
+      toast.success(`Staked $${val} on-chain`);
+      setStep("Recording…");
+      await activateId(val).catch(() => {}); // keep backend tree in sync (non-blocking)
+      onActivated?.(txHash);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e?.message || "Activation failed");
+      toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Activation failed");
     } finally {
       setBusy(false);
+      setStep("");
     }
   };
 
@@ -84,6 +97,7 @@ export default function ActivateCard({ min = 10, onActivated }) {
       >
         {busy ? <Loader2 size={18} className="animate-spin" /> : "Activate Now"}
       </button>
+      {busy && step && <p className="mt-2 text-center text-xs text-[#34D07A]">{step}</p>}
     </motion.div>
   );
 }
