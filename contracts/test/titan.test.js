@@ -133,6 +133,23 @@ describe("TITAN Protocol + Security", function () {
     expect(await ttn.balanceOf(await protocol.getAddress())).to.be.greaterThan(0);
   });
 
+  it("permissionless sell: user sells own TTN for USDT (no signature), cap reduces, blocked user cannot", async () => {
+    await protocol.connect(user).register();
+    await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256); // cap $200
+    await ttn.transfer(user.address, E(50));
+    await ttn.connect(user).approve(await protocol.getAddress(), ethers.MaxUint256);
+    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
+
+    const usdtBefore = await usdt.balanceOf(user.address);
+    await protocol.connect(user).sell(E(30), 0, deadline); // NO signature
+    expect(await usdt.balanceOf(user.address)).to.equal(usdtBefore + E(30)); // 1:1 mock
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(170)); // 200 - 30
+
+    // blocked user cannot sell
+    await security.connect(admin).blockUser(user.address);
+    await expect(protocol.connect(user).sell(E(1), 0, deadline)).to.be.revertedWith("user blocked");
+  });
+
   it("stake rejects below min / non-multiples / over daily cap", async () => {
     await protocol.connect(user).register();
     await expect(protocol.connect(user).stake(E(5), 0, ethers.MaxUint256)).to.be.revertedWith("below min");

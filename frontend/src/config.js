@@ -18,9 +18,9 @@ export const COIN_HERO_URL =
   "https://static.prod-images.emergentagent.com/jobs/3867ed87-dcc2-48ad-adde-0ee1b9542d8a/images/ecf39d18a731b51c7772de8a4415d0fa1e9f62e39ce341b922f43cf8c7c6b1ea.jpeg";
 
 export const ONCHAIN = {
-  protocol: "0xC3003529750189a98158A6B73fAc1b33Cdad068c",
-  token: "0x93a457066c8C00CB34c56eb6802BfD4282728818",
-  usdt: "0x7f54d89589bE32eE2Eb125C12624b2A8AD338789",
+  protocol: "0xf8eaf47A1Ee1a2f60f817743fCD72D33665ed537",
+  token: "0x619bB948d0f436287e50FAd36D536f3c2CA6C08e",
+  usdt: "0x88D326d04940433e27cBD9749e485223715bB397",
   chainId: 97,
   chainName: "BSC Testnet",
   rpc: "https://data-seed-prebsc-1-s1.binance.org:8545/",

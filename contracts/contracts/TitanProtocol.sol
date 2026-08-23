@@ -306,6 +306,34 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         emit Sold(msg.sender, ttnIn, usdtOut, nonce);
     }
 
+    // ------------------------------------------------ Permissionless sell (site-independent)
+    /// @notice Sell your own TTN for USDT directly on-chain — NO backend/signature needed.
+    /// @dev Works even if the website/backend is down. Bounded by your available mining cap and
+    ///      your own wallet TTN. Blocked users cannot sell. Callable directly via BSCScan.
+    function sell(uint256 ttnIn, uint256 minUsdtOut, uint256 deadline) external nonReentrant {
+        security.whenActive(msg.sender);
+        require(block.timestamp <= deadline, "expired");
+        require(address(router) != address(0), "router unset");
+        require(ttnIn > 0, "zero");
+
+        ttn.safeTransferFrom(msg.sender, address(this), ttnIn);
+        address[] memory path = new address[](2);
+        path[0] = address(ttn);
+        path[1] = address(usdt);
+        ttn.forceApprove(address(router), ttnIn);
+
+        uint256 balBefore = usdt.balanceOf(address(this));
+        router.swapExactTokensForTokens(ttnIn, minUsdtOut, path, address(this), deadline);
+        uint256 usdtOut = usdt.balanceOf(address(this)) - balBefore;
+
+        Account storage a = accounts[msg.sender];
+        require(a.miningCap >= usdtOut, "exceeds mining cap"); // can only extract up to available cap
+        a.miningCap -= usdtOut;
+
+        usdt.safeTransfer(msg.sender, usdtOut);
+        emit Sold(msg.sender, ttnIn, usdtOut, 0);
+    }
+
     // ------------------------------------------------------------------ Views
     function accountOf(address user)
         external

@@ -129,3 +129,14 @@ Verified on-chain (verify3.js): liquidity add OK, stake $100 -> cap 200, claim $
 ## On-chain Withdrawal menu — 2026-06
 Header.jsx triple-line menu me "On-chain Withdrawal" option + modal added (config.js ONCHAIN: protocol/token/usdt/chainId/rpc/explorer). Shows Network, Chain ID, RPC, Protocol contract, TTN token (copyable) + BSCScan writeContract link + guide. data-testids: menu-onchain-withdraw, onchain-withdraw-modal, onchain-bscscan-link. Verified via screenshot.
 PENDING for real launch (NOT done): permissionless sell (contract change), Backend Reward Engine (level 25% cascade, matching, daily/weekly/monthly pools, rank Star/Silver/Gold/Diamond, monthly 300x), Merkle authorization, frontend on-chain switch (real stake/claim/sell), multi-ID full testing, professional audit before mainnet. App still DEMO/mock for reward flows.
+
+## PERMISSIONLESS SELL added + REDEPLOYED — 2026-06
+TitanProtocol.sell(ttnIn, minUsdtOut, deadline): permissionless (NO signature) site-independent withdrawal. Pulls user's own TTN, swaps TTN->USDT on Pancake, reduces mining cap by USD received (bounded by available cap + own wallet TTN), blocked users reverted (whenActive), ReentrancyGuard. Callable directly via BSCScan even if site/backend down. sellMined (signed) kept too.
+Local Hardhat: 9/9 pass (added permissionless sell test + blocked-user-cannot-sell).
+NEW BSC Testnet deploy (chainId 97, replaces prior; frontend config.js ONCHAIN updated):
+- TitanToken (TTN): 0x619bB948d0f436287e50FAd36D536f3c2CA6C08e
+- TitanProtocol: 0xf8eaf47A1Ee1a2f60f817743fCD72D33665ed537
+- TitanSecurityAdmin: 0x05d85D76F3b5c562FBA34a619306a13ce4313B2C
+- CommunityFund: 0x325e0B6dAD2a64c5175DcC4d7DA71417E35cBDa2
+- MockUSDT: 0x88D326d04940433e27cBD9749e485223715bB397
+On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permissionless sell 5 TTN (NO sig) SUCCESS, cap 200 -> 149.75 (reduced by ~$50.25 USD received). Site-down withdrawal now real.
