@@ -245,9 +245,10 @@ class TestBinaryQualificationAndOwnerClub:
         assert bd["level_income_usd"] == pytest.approx(EXPECTED_ROOT_LEVEL_INCOME), bd
         assert bd["level_lapsed_usd"] == 0, bd              # Diamond unlocks L1-L15
         assert bd["monthly_pool_usd"] > 0, "qualified achiever got no monthly pool share"
-        # two cumulative streams: A = self ROI + level + monthly, B = daily + weekly
+        # two cumulative streams: A = self ROI + NET level (90%) + monthly, B = net daily + weekly
         assert bd["claimable_stream_a_usd"] == pytest.approx(
-            bd["self_roi_usd"] + bd["level_income_usd"] + bd["monthly_pool_usd"], rel=1e-9), bd
+            bd["self_roi_usd"] + bd["level_income_net_usd"] + bd["monthly_pool_usd"],
+            rel=1e-6, abs=1e-6), bd
         assert bd["claimable_stream_b_usd"] == pytest.approx(
             bd["daily_pool_usd"] + bd["weekly_pool_usd"], rel=1e-9), bd
         assert bd["total_claimable_usd"] == pytest.approx(
@@ -433,8 +434,13 @@ class TestBinaryQualificationAndOwnerClub:
         r2, g2 = group(0x200000)
         _, bd = tree_engine.compute(g1 + g2, {"daily": 0, "weekly": 0, "monthly": 1000.0})
         assert bd[r1]["monthly_qualified"] is True and bd[r2]["monthly_qualified"] is True
-        assert bd[r1]["monthly_pool_usd"] == 500.0, bd[r1]
-        assert bd[r2]["monthly_pool_usd"] == 500.0, bd[r2]
+        # monthly pool = base ($1000) + 10% deducted from every user's level+daily+weekly,
+        # split EQUALLY between the two achievers.
+        total_deducted = sum(b["deducted_to_monthly_usd"] for b in bd.values())
+        expected = (1000.0 + total_deducted) / 2
+        assert total_deducted > 0
+        assert bd[r1]["monthly_pool_usd"] == pytest.approx(expected, rel=1e-6), bd[r1]
+        assert bd[r2]["monthly_pool_usd"] == pytest.approx(expected, rel=1e-6), bd[r2]
         # everyone else gets nothing
         others = [a for a in bd if a not in (r1, r2)]
         assert all(bd[a]["monthly_pool_usd"] == 0 for a in others)

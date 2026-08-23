@@ -161,7 +161,8 @@ class TestRewardEngineFixes:
 
     def test_diamond_all_levels(self, api):
         r = self._sim(api, {"stake_usd": 1000, "active_directs": 15,
-                            "direct_business_usd": 5000, "downline_stake_usd": 1000})
+                            "direct_business_usd": 5000, "downline_stake_usd": 1000,
+                            "team_business_usd": 5000})
         assert r.status_code == 200, r.text
         d = r.json()
         assert d["rank"] == "Diamond"
@@ -183,11 +184,12 @@ class TestRewardEngineFixes:
         assert r.status_code == 422
 
     def test_rank_ladder_boundaries(self, api):
+        # AETHERA ladder: Star 5 directs, Silver 5+$1000, Gold 10+$2000,
+        # Diamond 10+$2000+$5000 team business (team business not an input here -> max Gold).
         cases = [
-            (0, 0, "Active"), (3, 500, "Star"), (5, 1000, "Silver"),
-            (9, 2000, "Silver"), (10, 1999, "Silver"),
-            (10, 2000, "Gold"), (14, 5000, "Gold"), (15, 4999, "Gold"),
-            (15, 5000, "Diamond"),
+            (0, 0, "Active"), (3, 500, "Active"), (5, 0, "Star"), (5, 999, "Star"),
+            (5, 1000, "Silver"), (9, 2000, "Silver"), (10, 1999, "Silver"),
+            (10, 2000, "Gold"), (14, 5000, "Gold"), (15, 5000, "Gold"),
         ]
         for directs, biz, expected in cases:
             r = self._sim(api, {"stake_usd": 100, "active_directs": directs,
@@ -209,13 +211,15 @@ class TestRewardMisc:
     def test_monthly_qualify(self, api):
         ok = api.post(f"{BASE_URL}/api/reward/monthly-qualify", json={
             "active_directs": 15, "direct_business_usd": 5000, "left_ids": 25,
-            "right_ids": 25, "left_carry_usd": 5000, "right_carry_usd": 5000}, timeout=30)
+            "right_ids": 25, "left_carry_usd": 5000, "right_carry_usd": 5000,
+            "team_business_usd": 5000}, timeout=30)
         assert ok.status_code == 200, ok.text
         assert ok.json()["owner_club_qualified"] is True
         assert ok.json()["cap_multiplier"] == "300%"
         no = api.post(f"{BASE_URL}/api/reward/monthly-qualify", json={
             "active_directs": 15, "direct_business_usd": 5000, "left_ids": 24,
-            "right_ids": 25, "left_carry_usd": 5000, "right_carry_usd": 5000}, timeout=30)
+            "right_ids": 25, "left_carry_usd": 5000, "right_carry_usd": 5000,
+            "team_business_usd": 5000}, timeout=30)
         assert no.status_code == 200
         assert no.json()["owner_club_qualified"] is False
         assert no.json()["cap_multiplier"] == "200%"

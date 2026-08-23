@@ -217,6 +217,11 @@ export default function PoolsPage() {
                 </div>
                 <ul className="space-y-2 text-xs text-white/70">
                   <li>• Share = pool balance split equally among all on-chain achievers.</li>
+                  {modal.pool.key === "monthly" ? (
+                    <li>• Funded by a <b className="text-[#D6C51E]">10%</b> deduction from all Direct, Level, Daily &amp; Weekly rewards across the network.</li>
+                  ) : (
+                    <li>• A <b className="text-[#D6C51E]">10%</b> deduction funds the Monthly Owner Club pool — you receive the net <b className="text-[#34D07A]">90%</b>.</li>
+                  )}
                   <li>• Reward is bought as TTN at the live PancakeSwap rate into your wallet.</li>
                   <li>• Claiming <b className="text-[#34D07A]">does NOT reduce</b> your mining cap — the cap only reduces when you SELL TTN for USDT.</li>
                   <li>• Estimate is live; final amount locks when the pool closes at 00:00 UTC.</li>

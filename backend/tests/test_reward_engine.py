@@ -92,7 +92,8 @@ class TestSimulate:
 
     def test_owner_diamond(self, client):
         d = sim(client, stake_usd=100, owner_tier=True, active_directs=15,
-                direct_business_usd=5000, downline_stake_usd=100).json()
+                direct_business_usd=5000, downline_stake_usd=100,
+                team_business_usd=5000).json()
         assert d["rank"] == "Diamond"
         assert d["mining_cap_usd"] == 300
         assert d["self_daily_roi_usd"] == 1.5
@@ -101,16 +102,17 @@ class TestSimulate:
         assert sum(x["lapsed_usd"] for x in d["level_income"]) == 0
 
     def test_rank_ladder(self, client):
+        # AETHERA ladder (Diamond needs $5000 team business, not a simulate input -> max Gold)
         cases = [
             (0, 0, "Active", 1),
             (2, 999, "Active", 1),
-            (5, 0, "Active", 1),
-            (3, 500, "Star", 3),
+            (3, 500, "Active", 1),
+            (5, 0, "Star", 3),
             (5, 999, "Star", 3),
             (5, 1000, "Silver", 6),
             (9, 5000, "Silver", 6),
             (10, 2000, "Gold", 9),
-            (15, 5000, "Diamond", 15),
+            (15, 5000, "Gold", 9),
         ]
         for directs, biz, rank, maxlv in cases:
             d = sim(client, active_directs=directs, direct_business_usd=biz,
@@ -165,7 +167,8 @@ class TestSimulate:
 class TestMonthlyQualify:
     def test_qualified(self, client):
         r = qual(client, active_directs=15, direct_business_usd=5000, left_ids=25,
-                 right_ids=25, left_carry_usd=5000, right_carry_usd=5000)
+                 right_ids=25, left_carry_usd=5000, right_carry_usd=5000,
+                 team_business_usd=5000)
         assert r.status_code == 200, r.text
         d = r.json()
         assert d["owner_club_qualified"] is True
@@ -188,7 +191,8 @@ class TestMonthlyQualify:
         ]
         for li, ri, lc, rc, exp in cases:
             d = qual(client, active_directs=15, direct_business_usd=5000, left_ids=li,
-                     right_ids=ri, left_carry_usd=lc, right_carry_usd=rc).json()
+                     right_ids=ri, left_carry_usd=lc, right_carry_usd=rc,
+                     team_business_usd=6000).json()
             assert d["owner_club_qualified"] is exp, f"{(li, ri, lc, rc)} -> {d}"
 
     def test_non_diamond_never_qualifies(self, client):

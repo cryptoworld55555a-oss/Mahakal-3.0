@@ -293,3 +293,14 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - /team endpoint level reqs updated to match (Star need 5, Diamond need 10/$2000/$5000-team). qualification.unlocked now shows LEVELS unlocked (rank->max_level: Active1/Star3/Silver6/Gold9/Diamond15), tiers_unlocked kept separately.
 - Verified: rank_for unit tests, /team DEMO_ROOT = Diamond 15/15 with correct X/Y, MyTeamPage ladder screenshot matches AETHERA, /reward/simulate still correct, level income $749 unchanged (no cascade regression).
 - STILL OPEN (needs user decision, flagged earlier): 10% deduction from Direct+Level+Daily+Weekly funding the monthly owner pool (AETHERA slide 08/09/10). Currently monthly pool is a stored value; direct/level don't contribute their 10%.
+
+## [2026-08-23] Monthly Owner pool 10% deduction funding (AETHERA slide 10)
+- Implemented monthly pool FUNDING per AETHERA slide 10: 10% deducted from every user's Direct+Level+Daily+Weekly payout (users receive NET 90%); ROI NOT deducted. Pooled 10% + base pool split EQUALLY among Diamond owners.
+  - tree_engine: DEDUCT_BPS=1000, net_factor 0.9. Breakdown now has level_income_net_usd, daily/weekly_pool_gross_usd, daily/weekly_pool_usd (net), deducted_to_monthly_usd. monthly_pool_total = base + sum(deductions).
+  - monthly_qualified now also requires Diamond rank (slide 10 "Diamond Leader Rank AND...").
+  - /api/pools: monthly.balance = base + all deductions; daily/weekly estimate NET (x0.9); monthly estimate no further deduction. PoolsPage info modal explains the 10% funding.
+- Bugs found by testing agent (iteration_16) and FIXED:
+  - /api/reward/simulate + /api/reward/monthly-qualify now accept team_business_usd and pass it to rank_for/monthly_owner_qualified -> Diamond/Owner-Club reachable again (was silently capped at Gold).
+  - /api/me profit_sources 'Level' + /api/team direct/level reward fields now use level_income_net_usd (were gross, over-reported by 10%).
+- Verified: full backend suite 171 passed (0 xfail) serially; live curl confirms monthly-qualify->Diamond, simulate->Diamond L15 unlocked, /me sources sum == total.
+- Left as-is (minor, simulator-only): reward_engine.pool_contribution() per-stake monthly estimate still models 10% of daily+weekly only (can't know network-wide direct/level from a single stake input); does NOT affect real distribution in tree_engine.

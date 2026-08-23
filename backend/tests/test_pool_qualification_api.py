@@ -229,8 +229,9 @@ class TestPoolQualificationE2E:
         daily = [b for b in bmap.values() if b["daily_pool_usd"] > 0]
         weekly = [b for b in bmap.values() if b["weekly_pool_usd"] > 0]
         assert daily and weekly
-        assert daily[0]["daily_pool_usd"] == pytest.approx(DAILY_POOL / len(daily), rel=1e-6)
-        assert weekly[0]["weekly_pool_usd"] == pytest.approx(WEEKLY_POOL / len(weekly), rel=1e-6)
+        # users receive the NET 90% (10% funds the monthly Owner pool)
+        assert daily[0]["daily_pool_usd"] == pytest.approx(DAILY_POOL / len(daily) * 0.9, rel=1e-6)
+        assert weekly[0]["weekly_pool_usd"] == pytest.approx(WEEKLY_POOL / len(weekly) * 0.9, rel=1e-6)
         # every eligible user gets an identical share
         assert len({round(b["daily_pool_usd"], 6) for b in daily}) == 1
         assert len({round(b["weekly_pool_usd"], 6) for b in weekly}) == 1
@@ -248,9 +249,10 @@ class TestPoolQualificationE2E:
             # stream_b == daily + weekly only
             assert bd["claimable_stream_b_usd"] == pytest.approx(
                 bd["daily_pool_usd"] + bd["weekly_pool_usd"], rel=1e-9), a
-            # stream_a == self roi + level income + monthly
+            # stream_a == self roi + NET level income (90%) + monthly
             assert bd["claimable_stream_a_usd"] == pytest.approx(
-                bd["self_roi_usd"] + bd["level_income_usd"] + bd["monthly_pool_usd"], rel=1e-9), a
+                bd["self_roi_usd"] + bd["level_income_net_usd"] + bd["monthly_pool_usd"],
+                rel=1e-6, abs=1e-6), a
 
         # leaves: stream_a leaf cap_reduce=True, stream_b leaf cap_reduce=False
         r = api.get(f"{API}/reward/tree/user/{B_ROOT}", timeout=60)

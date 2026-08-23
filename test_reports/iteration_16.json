@@ -1,0 +1,49 @@
+{
+  "summary": "Backend-only regression + new-contract verification for the AETHERA MONTHLY OWNER POOL 10% deduction funding, Diamond monthly gate and realigned leadership ranks. Wrote a new 22-test suite (test_monthly_deduction_api.py) against the public preview URL + pure tree_engine/reward_engine checks, and updated 4 stale suites to the new contract. Full backend suite: 165 passed, 6 xfailed (5 xfails document real product bugs found). Core math verified: net = 0.9 * gross for level/daily/weekly, ROI untouched, deducted = 10% of (level+daily_gross+weekly_gross), monthly pool = base + sum(deductions) split equally among Diamond achievers, /api/pools daily+weekly estimates NET and monthly estimate not deducted, DEMO_ROOT Diamond with qualification.unlocked=15, e2e seed-demo -> build -> tree/user (non-empty proofs) -> merkle/latest all consistent.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/reward/monthly-qualify", "issue": "Can NEVER return owner_club_qualified=true anymore. reward_engine.monthly_owner_qualified() calls rank_for(active_directs, direct_business) without the new team_business argument, so rank caps at Gold and the Diamond check always fails. Request model MonthlyQualRequest also has no team_business_usd field. Owner-Club simulator endpoint is effectively dead.", "priority": "HIGH"},
+      {"endpoint": "POST /api/reward/simulate", "issue": "Diamond rank is unreachable: RewardSimRequest/rw.simulate have no team_business_usd input and rank_for is called with 2 args, so max rank = Gold and levels 10-15 always show locked/lapsed in the simulator. Add team_business_usd to the request model and pass it through.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/me/{address}", "issue": "profit_sources 'Level' uses GROSS level_income_usd while total_profit_usdt = total_claimable_usd (NET level). Breakdown over-reports by exactly 10% of level income (verified: sources sum 4,542,430.27 vs total 4,542,355.37, diff 74.9 = 10% of 749). Should use level_income_net_usd. Same gross figure is used in /api/team directs.reward_usdt and accounting.direct_level_rewards_usdt."},
+      {"endpoint": "reward_engine.pool_contribution()", "issue": "Still models the monthly pool as 10% of daily+weekly only; it ignores the new 10% deduction from Direct/Level income, so /api/reward/simulate.pools_from_this_stake.monthly_pool_usd understates the funding rule."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_monthly_deduction_api.py",
+    "/app/backend/tests/test_monthly_rule_edges.py",
+    "/app/backend/tests/test_pool_qualification_api.py",
+    "/app/backend/tests/test_tree_engine_api.py",
+    "/app/backend/tests/test_reward_engine.py",
+    "/app/backend/tests/test_merkle_api.py",
+    "/app/test_reports/pytest/iteration16_results.xml"
+  ],
+  "action_items": [
+    "Add team_business_usd to RewardSimRequest + MonthlyQualRequest and thread it into rw.simulate()/rw.monthly_owner_qualified() so Diamond/Owner-Club is reachable via /api/reward/simulate and /api/reward/monthly-qualify (currently impossible).",
+    "Use level_income_net_usd in /api/me profit_sources and /api/team direct/level reward fields so displayed components sum to total_claimable_usd.",
+    "Update reward_engine.pool_contribution() to reflect that the monthly pool is funded by 10% of Direct+Level+Daily+Weekly (not daily+weekly only)."
+  ],
+  "critical_code_review_comments": [
+    "rank_for() gained a third parameter but only tree_engine was updated; the two public API call sites (rw.simulate, rw.monthly_owner_qualified) still pass 2 args and silently degrade Diamond to Gold - a signature change like this should have been swept across all call sites.",
+    "Monthly qualification logic is now duplicated in two places with DIFFERENT rules: tree_engine.compute (Diamond + qualified $50+ IDs + team business) vs reward_engine.monthly_owner_qualified (no team business). Consolidate into one function to avoid divergence.",
+    "The 10% deduction constant is duplicated: tree_engine.DEDUCT_BPS=1000, reward_engine.MONTHLY_DEDUCT_BPS=1000 and a literal NET=0.9 in server.py pools endpoint. Import one shared constant to keep the payout ratio consistent.",
+    "server.py is large (>1000 lines) and mixes user, admin, reward and pool routes; consider splitting into routers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_monthly_deduction_api.py (new)",
+    "/app/backend/tests/test_monthly_rule_edges.py (rewritten for new contract; old strict xfails now pass)",
+    "/app/backend/tests/test_pool_qualification_api.py (net 90% pool share + net level in stream_a)",
+    "/app/backend/tests/test_tree_engine_api.py (stream_a uses level_income_net_usd; monthly split = base + deductions)",
+    "/app/backend/tests/test_reward_engine.py (AETHERA rank ladder; 3 xfails documenting the simulate/monthly-qualify Diamond bug)",
+    "/app/backend/tests/test_merkle_api.py (AETHERA rank ladder; 2 xfails documenting the same bug)"
+  ],
+  "success_rate": {"backend": "100% of 165 executed assertions/tests pass; 5 xfail-documented product bugs in /api/reward/simulate, /api/reward/monthly-qualify, /api/me", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "POST /api/reward/tree/seed-demo (51 DEMO_* nodes) + QD_* mongo users (1-direct and 5-direct pool cases) with protocol_stats pools pinned to daily=3200/weekly=7000/monthly=9000 during the class, then restored and the snapshot rebuilt in teardown.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "None needed - wallet-based app, ADMIN_API_KEY unset so admin/dev writes are open.",
+  "context_for_next_testing_agent": "Run pytest SERIALLY: `cd /app/backend && python -m pytest tests/ -n 0`. New contract asserted in tests/test_monthly_deduction_api.py (single class, shared global snapshot). 5 strict xfails encode REAL bugs: 2 in test_reward_engine.py + 2 in test_merkle_api.py (Diamond unreachable via /api/reward/simulate and /api/reward/monthly-qualify because rank_for is called without team_business) and 1 in test_monthly_deduction_api.py::test_21 (/api/me profit_sources 'Level' is gross). After the main agent fixes them, REMOVE those xfail markers and re-run. Verified live values: DEMO_ROOT pools -> daily bal 2,253,608.75/19 achievers/est 106,749.89 (=bal/19*0.9), weekly 1 achiever est = bal*0.9, monthly 1 achiever est == bal (base + all deductions).",
+  "rca_of_the_issue": "reward_engine.rank_for() was extended with a third team_business_usd parameter (default 0.0) for the Diamond gate. tree_engine passes it, but rw.simulate() and rw.monthly_owner_qualified() were not updated, so they evaluate Diamond with team_business=0 < 5000 and can never reach Diamond. Because the parameter defaults to 0.0 the miss is silent (no TypeError). Reproduce: POST /api/reward/monthly-qualify {active_directs:15, direct_business_usd:5000, left_ids:25, right_ids:25, left_carry_usd:5000, right_carry_usd:5000} -> {'owner_club_qualified': false, 'rank': 'Gold'}. Fix: accept team_business_usd on both request models and forward it to rank_for."
+}

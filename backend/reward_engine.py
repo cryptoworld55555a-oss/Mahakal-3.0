@@ -79,16 +79,17 @@ def pool_contribution(stake_usd: float) -> Dict:
 
 
 def monthly_owner_qualified(active_directs, direct_business, left_ids, right_ids,
-                            left_carry, right_carry) -> bool:
-    """Diamond + $5000 both legs + 25 IDs each leg -> 300% cap Owner Club."""
-    return (rank_for(active_directs, direct_business)["name"] == "Diamond"
+                            left_carry, right_carry, team_business=0.0) -> bool:
+    """Diamond + $5000 both legs + 25 IDs each leg -> 300% cap Owner Club.
+    Diamond rank itself needs 10 directs + $2000 direct + $5000 15-level team business."""
+    return (rank_for(active_directs, direct_business, team_business)["name"] == "Diamond"
             and left_ids >= 25 and right_ids >= 25
             and left_carry >= 5000 and right_carry >= 5000)
 
 
 def simulate(stake_usd: float, owner: bool, active_directs: int, direct_business: float,
-             downline_stake_usd: float) -> Dict:
-    r = rank_for(active_directs, direct_business)
+             downline_stake_usd: float, team_business: float = 0.0) -> Dict:
+    r = rank_for(active_directs, direct_business, team_business)
     cap = cap_for(stake_usd, owner)
     return {
         "stake_usd": stake_usd,

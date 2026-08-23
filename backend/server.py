@@ -337,7 +337,7 @@ async def me(address: str):
     cap = bd.get("mining_cap_usd", 0)
     reward = bd.get("total_claimable_usd", 0)
     roi = bd.get("self_roi_usd", 0)
-    level_inc = bd.get("level_income_usd", 0)
+    level_inc = bd.get("level_income_net_usd", bd.get("level_income_usd", 0))
     monthly = bd.get("monthly_pool_usd", 0)
     daily = bd.get("daily_pool_usd", 0)
     weekly = bd.get("weekly_pool_usd", 0)
@@ -442,10 +442,10 @@ async def team(address: str):
             "left": {"business_usdt": lbiz, "team_size": lids},
             "right": {"business_usdt": rbiz, "team_size": rids},
         },
-        "directs": {"reward_usdt": bd.get("level_income_usd", 0), "count": len(direct_docs),
+        "directs": {"reward_usdt": bd.get("level_income_net_usd", bd.get("level_income_usd", 0)), "count": len(direct_docs),
                     "active": active_dir, "inactive": len(direct_docs) - active_dir},
         "level_summary": {"total_team_size": lids + rids, "total_team_business_usdt": lbiz + rbiz},
-        "accounting": {"direct_level_rewards_usdt": bd.get("level_income_usd", 0),
+        "accounting": {"direct_level_rewards_usdt": bd.get("level_income_net_usd", bd.get("level_income_usd", 0)),
                        "lapsed_usdt": bd.get("level_lapsed_usd", 0)},
         "qualification": {"unlocked": levels_unlocked, "tiers_unlocked": unlocked_count, "total": 15, "levels": levels},
         "members": [{"uid": u.get("uid"), "address": u["address"], "active": u.get("is_active", False),
@@ -491,6 +491,7 @@ class RewardSimRequest(BaseModel):
     active_directs: int = Field(0, ge=0)
     direct_business_usd: float = Field(0.0, ge=0)
     downline_stake_usd: float = Field(0.0, ge=0)
+    team_business_usd: float = Field(0.0, ge=0)
 
 
 @api_router.post("/reward/simulate")
@@ -503,6 +504,7 @@ async def reward_simulate(req: RewardSimRequest):
         active_directs=req.active_directs,
         direct_business=req.direct_business_usd,
         downline_stake_usd=req.downline_stake_usd,
+        team_business=req.team_business_usd,
     )
 
 
@@ -513,17 +515,19 @@ class MonthlyQualRequest(BaseModel):
     right_ids: int = Field(0, ge=0)
     left_carry_usd: float = Field(0.0, ge=0)
     right_carry_usd: float = Field(0.0, ge=0)
+    team_business_usd: float = Field(0.0, ge=0)
 
 
 @api_router.post("/reward/monthly-qualify")
 async def reward_monthly_qualify(req: MonthlyQualRequest):
     qualified = rw.monthly_owner_qualified(
         req.active_directs, req.direct_business_usd,
-        req.left_ids, req.right_ids, req.left_carry_usd, req.right_carry_usd)
+        req.left_ids, req.right_ids, req.left_carry_usd, req.right_carry_usd,
+        team_business=req.team_business_usd)
     return {
         "owner_club_qualified": qualified,
         "cap_multiplier": "300%" if qualified else "200%",
-        "rank": rw.rank_for(req.active_directs, req.direct_business_usd)["name"],
+        "rank": rw.rank_for(req.active_directs, req.direct_business_usd, req.team_business_usd)["name"],
     }
 
 
@@ -695,7 +699,9 @@ async def pools_for_user(address: str):
 
     daily_bal = round(float(stats.get("daily_pool_usdt", 0) or 0), 2)
     weekly_bal = round(float(stats.get("weekly_pool_usdt", 0) or 0), 2)
-    monthly_bal = round(float(stats.get("monthly_pool_usdt", 0) or 0), 2)
+    # Monthly pool = base pool + 10% deducted from everyone's Direct+Level+Daily+Weekly.
+    total_deducted = sum(float(b.get("deducted_to_monthly_usd", 0) or 0) for b in breakdown.values())
+    monthly_bal = round(float(stats.get("monthly_pool_usdt", 0) or 0) + total_deducted, 2)
 
     q_directs = int(bd.get("qualified_directs", 0))
     cap = float(bd.get("mining_cap_usd", 0))
@@ -706,7 +712,13 @@ async def pools_for_user(address: str):
     left_biz = float(binr.get("left_business_usd", 0)); right_biz = float(binr.get("right_business_usd", 0))
     in_tree = addr in breakdown
 
-    def est(balance, achievers, qualified):
+    NET = 0.9  # daily/weekly recipients get 90% (10% funds the monthly Owner pool)
+
+    def est_net(balance, achievers, qualified):
+        n = achievers + (0 if qualified else 1)
+        return round((balance / n) * NET, 2) if n > 0 else round(balance * NET, 2)
+
+    def est(balance, achievers, qualified):  # monthly: no further deduction
         n = achievers + (0 if qualified else 1)
         return round(balance / n, 2) if n > 0 else round(balance, 2)
 
@@ -718,7 +730,7 @@ async def pools_for_user(address: str):
         "in_tree": in_tree,
         "daily": {
             "balance": daily_bal, "achievers": daily_ach, "qualified": daily_q,
-            "estimate": est(daily_bal, daily_ach, daily_q),
+            "estimate": est_net(daily_bal, daily_ach, daily_q),
             "reqs": [
                 {"label": "Direct with 50+ Stake today", "have": q_directs, "need": 1, "ok": q_directs >= 1},
                 {"label": "Available mining cap", "have": round(cap, 2), "need": 100, "ok": cap >= 100, "usd": True},
@@ -726,7 +738,7 @@ async def pools_for_user(address: str):
         },
         "weekly": {
             "balance": weekly_bal, "achievers": weekly_ach, "qualified": weekly_q,
-            "estimate": est(weekly_bal, weekly_ach, weekly_q),
+            "estimate": est_net(weekly_bal, weekly_ach, weekly_q),
             "reqs": [
                 {"label": "Directs with 50+ Stake this week", "have": q_directs, "need": 5, "ok": q_directs >= 5},
                 {"label": "Available mining cap", "have": round(cap, 2), "need": 200, "ok": cap >= 200, "usd": True},

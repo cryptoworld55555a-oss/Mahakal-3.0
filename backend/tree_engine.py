@@ -10,9 +10,13 @@ SELLS TTN -> USDT, by the ACTUAL USDT received at the live price. (The capReduce
 leaf now only separates two cumulative reward streams; it no longer affects the cap.)
 
 Binary is used ONLY for qualification (no matching income). Monthly qualification =
-active + own stake >= $50 + 10 active directs (>= $50 each) + $2000 direct business +
-25 qualified IDs each leg + $5000 business each leg. Both legs counted only 15 levels deep.
-A one-time qualification grants Owner-Club (300% cap) permanently.
+active + own stake >= $50 + Diamond Leader rank + 10 active directs (>= $50 each) +
+$2000 direct business + 25 qualified IDs each leg + $5000 business each leg. Both legs
+counted only 15 levels deep. A one-time qualification grants Owner-Club (300% cap) permanently.
+
+Monthly Owner pool FUNDING: 10% is deducted from every user's Direct+Level+Daily+Weekly
+payout (users receive the net 90%); the pooled 10% + any base pool is split EQUALLY among
+qualified owners. Self ROI is NOT deducted.
 
 Pure calculation. Produces (address, cumulative_usd_wei, cap_reduce) leaves + per-user breakdown.
 """
@@ -141,6 +145,7 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
         monthly_qualified[a] = bool(
             u.get("active")
             and float(u.get("stake_usd", 0)) >= MIN_MEMBERSHIP_USD
+            and rank[a]["name"] == "Diamond"
             and qualified_directs[a] >= MONTHLY_MIN_DIRECTS
             and direct_business[a] >= MONTHLY_DIRECT_BUSINESS
             and left_ids[a] >= MONTHLY_LEG_IDS and right_ids[a] >= MONTHLY_LEG_IDS
@@ -165,19 +170,36 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
     achievers = {a for a in active_set if monthly_qualified[a]}
     daily_share = pools.get("daily", 0) / len(daily_elig) if daily_elig else 0
     weekly_share = pools.get("weekly", 0) / len(weekly_elig) if weekly_elig else 0
-    monthly_share = pools.get("monthly", 0) / len(achievers) if achievers else 0
+
+    # Monthly Owner pool = base pool + 10% deducted from every user's Direct+Level+Daily+Weekly
+    # payout (users receive the net 90%). ROI is NOT deducted. Split EQUALLY among owners.
+    DEDUCT_BPS = 1000  # 10%
+    net_factor = (BPS - DEDUCT_BPS) / BPS  # 0.9
+    total_deducted = 0.0
+    for a in by_addr:
+        d = daily_share if a in daily_elig else 0
+        w = weekly_share if a in weekly_elig else 0
+        total_deducted += (level_income[a] + d + w) * DEDUCT_BPS / BPS
+    monthly_pool_total = pools.get("monthly", 0) + total_deducted
+    monthly_share = monthly_pool_total / len(achievers) if achievers else 0
 
     # ------------------------------------------------ Leaves + breakdown
     leaves = []; breakdown = {}
     for a in by_addr:
         m_share = monthly_share if a in achievers else 0
-        d_share = daily_share if a in daily_elig else 0
-        w_share = weekly_share if a in weekly_elig else 0
+        d_gross = daily_share if a in daily_elig else 0
+        w_gross = weekly_share if a in weekly_elig else 0
+
+        # 10% of Direct+Level+Daily+Weekly is deducted to fund the monthly pool.
+        lvl_net = level_income[a] * net_factor
+        d_net = d_gross * net_factor
+        w_net = w_gross * net_factor
+        deducted = (level_income[a] + d_gross + w_gross) * DEDUCT_BPS / BPS
 
         # Two cumulative reward streams (cap is NOT touched at claim; only at sell).
-        # streamA = self ROI + level income + monthly pool; streamB = daily + weekly pool.
-        stream_a = self_roi[a] + level_income[a] + m_share
-        stream_b = d_share + w_share
+        # streamA = self ROI + net level income + monthly owner share; streamB = net daily + net weekly.
+        stream_a = self_roi[a] + lvl_net + m_share
+        stream_b = d_net + w_net
 
         breakdown[a] = {
             "address": a,
@@ -190,6 +212,7 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
             "team_business_usd": round(team_business[a], 6),
             "self_roi_usd": round(self_roi[a], 6),
             "level_income_usd": round(level_income[a], 6),
+            "level_income_net_usd": round(lvl_net, 6),
             "level_lapsed_usd": round(level_lapsed[a], 6),
             "binary": {
                 "left_ids": left_ids[a], "right_ids": right_ids[a],
@@ -198,9 +221,12 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
             "monthly_qualified": monthly_qualified[a],
             "daily_eligible": a in daily_elig,
             "weekly_eligible": a in weekly_elig,
-            "daily_pool_usd": round(d_share, 6),
-            "weekly_pool_usd": round(w_share, 6),
+            "daily_pool_usd": round(d_net, 6),
+            "weekly_pool_usd": round(w_net, 6),
+            "daily_pool_gross_usd": round(d_gross, 6),
+            "weekly_pool_gross_usd": round(w_gross, 6),
             "monthly_pool_usd": round(m_share, 6),
+            "deducted_to_monthly_usd": round(deducted, 6),
             "claimable_stream_a_usd": round(stream_a, 6),
             "claimable_stream_b_usd": round(stream_b, 6),
             "total_claimable_usd": round(stream_a + stream_b, 6),
