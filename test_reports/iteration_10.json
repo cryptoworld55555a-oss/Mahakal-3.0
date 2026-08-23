@@ -1,0 +1,33 @@
+{
+  "summary": "Backend-only testing of the new off-chain Reward Engine (GET /api/reward/config, POST /api/reward/simulate, POST /api/reward/monthly-qualify) via the public REACT_APP_BACKEND_URL. Created /app/backend/tests/test_reward_engine.py with 19 pytest cases covering config percentages, rank gating ladder, level cascade math, cap/ROI math, pool contributions, Owner Club boundary conditions, and input validation. Result: 16/19 passed. All 6 explicitly requested scenarios PASS (config values & 25% sum, Silver case L1-6 unlocked/L7-15 lapsed, owner+Diamond 300 cap & 1.5 ROI & all 15 levels, monthly-qualify true/false cases, L1=7.0 L2=3.0 L7=1.0 L10=0.5). 3 failures are real defects found in edge-case probing: Gold rank is mathematically unreachable, and negative numeric inputs are accepted producing negative payouts.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/reward/simulate", "issue": "Gold rank is unreachable. reward_engine.RANKS gives Gold and Diamond identical thresholds (directs=10, direct_business=2000) and rank_for() takes the LAST matching entry, so anyone qualifying for Gold is immediately promoted to Diamond (L10-L15 unlocked). Levels 7-9 gating (Gold tier) can therefore never be exercised, and monthly Owner Club 'Diamond' requirement is trivially satisfied at Gold-level volume.", "priority": "CRITICAL"},
+      {"endpoint": "POST /api/reward/simulate", "issue": "No non-negative validation on downline_stake_usd. Sending downline_stake_usd=-100 returns 200 with amount_usd=-7.0 and payable_usd=-7.0 (negative level income). Should be Field(ge=0) -> 422.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/reward/simulate", "issue": "active_directs=-5 and direct_business_usd=-100 accepted (200). Should be ge=0."},
+      {"endpoint": "POST /api/reward/monthly-qualify", "issue": "No validation on left_ids/right_ids/carry fields (negatives accepted). Harmless today because thresholds are >=, but should be ge=0 for consistency."},
+      {"endpoint": "POST /api/reward/simulate", "issue": "level_income() gates all 15 levels by the single viewer rank (upline_max_level). Real cascade needs per-upline rank; documented as 'simplified' in code, flagging so it is not shipped as final payout logic."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_reward_engine.py", "/app/test_reports/pytest/reward_results.xml"],
+  "action_items": [
+    "Differentiate Diamond thresholds from Gold in reward_engine.RANKS (e.g. Diamond directs/business higher, or add leg-ID/carry criteria) so Gold (L7-L9) is achievable and Diamond is genuinely gated.",
+    "Add Field(ge=0) to downline_stake_usd, active_directs, direct_business_usd in RewardSimRequest and to all MonthlyQualRequest numeric fields.",
+    "Confirm intended semantics of pool_contribution: daily/weekly are each 5% of stake and monthly = 10% of (daily+weekly). Currently daily_net/weekly_net each drop 10% and monthly_pool = 10% of gross sum — math is self-consistent but should be signed off against Rule Book 5.0."
+  ],
+  "critical_code_review_comments": [
+    "rank_for() last-match loop combined with duplicate Gold/Diamond thresholds silently collapses two ranks — add a uniqueness/ordering assertion over RANKS thresholds.",
+    "Pure-calculation module has no negative/NaN input guards; validation must live in the Pydantic request models since these numbers later feed on-chain Merkle authorization.",
+    "roi_days_to_full is always 200 (cap / 0.5% of cap) regardless of tier — consider exposing it as a constant or documenting that Owner tier does not shorten payout duration."
+  ],
+  "updated_files": ["/app/backend/tests/test_reward_engine.py"],
+  "success_rate": {"backend": "84% (16/19)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "None — endpoints are stateless calculations, no DB writes.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reward engine suite lives at /app/backend/tests/test_reward_engine.py (module-scoped requests session, no auth). test_gold_rank_reachable, test_negative_downline_rejected, test_negative_directs_rejected are the 3 intentional failing assertions documenting real defects — re-run them after the main agent fixes RANKS thresholds and Pydantic ge=0 validation. test_rank_ladder currently encodes the CURRENT (buggy) mapping 10 directs/$2000 -> Diamond; update that case to Gold once thresholds are separated. Existing unrelated suite: /app/backend/tests/backend_test.py.",
+  "rca_of_the_issue": "rank_for() iterates RANKS in order and keeps the last entry whose thresholds are met. Gold {directs:10, business:2000} and Diamond {directs:10, business:2000} are identical, so Diamond always wins — Gold is dead code. Separately, RewardSimRequest only constrains stake_usd (gt=0); all other numeric fields are unconstrained floats/ints, so negative downline stake flows straight through level_income() and yields negative payable_usd."
+}

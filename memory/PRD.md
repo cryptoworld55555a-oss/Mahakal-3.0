@@ -140,3 +140,12 @@ NEW BSC Testnet deploy (chainId 97, replaces prior; frontend config.js ONCHAIN u
 - CommunityFund: 0x325e0B6dAD2a64c5175DcC4d7DA71417E35cBDa2
 - MockUSDT: 0x88D326d04940433e27cBD9749e485223715bB397
 On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permissionless sell 5 TTN (NO sig) SUCCESS, cap 200 -> 149.75 (reduced by ~$50.25 USD received). Site-down withdrawal now real.
+
+## [2026-06] Reward Engine Phase 1 (calculation brain) — DONE
+- Added /app/backend/reward_engine.py: level cascade 25% (L1=7,L2-3=3,L4-6=2,L7-9=1,L10-15=0.5), self ROI 0.5%/day of cap, caps 200%/300%, rank gating ladder (Active L1 / Star L2-3 / Silver L4-6 / Gold L7-9 / Diamond L10-15), pool contributions (5% daily, 5% weekly, monthly = 10% deduction), monthly Owner Club 300x qualifier.
+- Endpoints: POST /api/reward/simulate, POST /api/reward/monthly-qualify, GET /api/reward/config.
+- testing_agent iteration_10: 16/19 pass; fixed 2 defects (Gold rank unreachable -> escalating thresholds; negative-input validation -> Pydantic ge=0). Both curl-verified.
+### PENDING next chunks (NOT done):
+- Merkle authorization contract + root publish + on-chain claim(proof) [large]
+- Frontend on-chain switch: real ethers calls for activate/stake/claim/sell wired to latest testnet protocol 0xf8eaf47A1Ee1a2f60f817743fCD72D33665ed537
+- Multi-ID testnet e2e: each rank, daily/weekly/monthly pools, all level records, Owner 300x, claim price-up effect, self ROI on-chain

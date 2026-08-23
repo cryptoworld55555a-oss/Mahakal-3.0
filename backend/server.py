@@ -15,6 +15,8 @@ from datetime import datetime, timezone, timedelta
 from eth_account import Account
 from eth_account.messages import encode_defunct
 
+import reward_engine as rw
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -414,6 +416,61 @@ async def holders(search: str = "", page: int = 1, page_size: int = Query(25, ge
     sliced = data[start:start + page_size]
     ranked = [{"rank": start + i + 1, **h} for i, h in enumerate(sliced)]
     return {"total": total, "page": page, "pages": pages, "page_size": page_size, "holders": ranked}
+
+
+class RewardSimRequest(BaseModel):
+    stake_usd: float = Field(gt=0)
+    owner_tier: bool = False
+    active_directs: int = Field(0, ge=0)
+    direct_business_usd: float = Field(0.0, ge=0)
+    downline_stake_usd: float = Field(0.0, ge=0)
+
+
+@api_router.post("/reward/simulate")
+async def reward_simulate(req: RewardSimRequest):
+    """Off-chain Reward Engine calculation (self ROI + level cascade + rank + pools + 300x tier).
+    Output is calculation-only; on-chain authorization (Merkle) applied in next phase."""
+    return rw.simulate(
+        stake_usd=req.stake_usd,
+        owner=req.owner_tier,
+        active_directs=req.active_directs,
+        direct_business=req.direct_business_usd,
+        downline_stake_usd=req.downline_stake_usd,
+    )
+
+
+class MonthlyQualRequest(BaseModel):
+    active_directs: int = Field(0, ge=0)
+    direct_business_usd: float = Field(0.0, ge=0)
+    left_ids: int = Field(0, ge=0)
+    right_ids: int = Field(0, ge=0)
+    left_carry_usd: float = Field(0.0, ge=0)
+    right_carry_usd: float = Field(0.0, ge=0)
+
+
+@api_router.post("/reward/monthly-qualify")
+async def reward_monthly_qualify(req: MonthlyQualRequest):
+    qualified = rw.monthly_owner_qualified(
+        req.active_directs, req.direct_business_usd,
+        req.left_ids, req.right_ids, req.left_carry_usd, req.right_carry_usd)
+    return {
+        "owner_club_qualified": qualified,
+        "cap_multiplier": "300%" if qualified else "200%",
+        "rank": rw.rank_for(req.active_directs, req.direct_business_usd)["name"],
+    }
+
+
+@api_router.get("/reward/config")
+async def reward_config():
+    return {
+        "level_bps": rw.LEVEL_BPS,
+        "level_pct": [b / 100.0 for b in rw.LEVEL_BPS],
+        "total_level_pct": sum(rw.LEVEL_BPS) / 100.0,
+        "daily_roi_pct": rw.DAILY_ROI_BPS / 100.0,
+        "standard_cap_pct": rw.STANDARD_CAP_BPS / 100.0,
+        "owner_cap_pct": rw.OWNER_CAP_BPS / 100.0,
+        "ranks": rw.RANKS,
+    }
 
 
 app.include_router(api_router)
