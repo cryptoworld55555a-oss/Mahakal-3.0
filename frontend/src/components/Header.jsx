@@ -243,7 +243,7 @@ export default function Header() {
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#0AA84F]/40 bg-[#0AA84F]/10 px-3 py-2.5">
               <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#34D07A]" />
               <p className="text-[11px] leading-relaxed text-white/70">
-                <b className="text-[#34D07A]">Fully secured &amp; non-custodial.</b> Your assets live on BNB Smart Chain, protected by audited smart contracts — no one can freeze, block or touch your on-chain withdrawal. You are always in control.
+                <b className="text-[#34D07A]">Fully secured &amp; non-custodial.</b> Your assets live safely on BNB Smart Chain, protected by audited smart contracts. You always stay in full control of your funds — withdraw anytime, directly on-chain, with complete peace of mind.
               </p>
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-white/45">
