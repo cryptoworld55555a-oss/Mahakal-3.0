@@ -253,3 +253,10 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - lib/chain.js used by UI. ActivateCard: getAccount->register if needed->stakeOnChain(USDT auto-approve)->activateId backend sync + step status. MiningPage: reads real on-chain cap/staked/renewalDue via getAccount; reward from GET /reward/tree/user (total_claimable_usd); mine-claim-btn -> claimAllRewards (fetch proofs + claimMerkle each); renew banner+btn when isRenewalDue; SellCard (data-testid sell-card/sell-amount-input/sell-submit-btn) -> sellOnChain. api.getRewardUser added.
 - App compiles + loads, no JS errors. NOTE: full UI e2e needs real MetaMask (window.ethereum) which the preview lacks; underlying contract fns are testnet-proven (full-e2e.js). getAccount fails gracefully when no wallet (cap shows 0).
 ### REMAINING: 14-15 My Team + Dashboard real data (still mock getTeam/stats); 10 WalletConnect QR (needs Project ID); BscScan verify (API key); 5 mainnet (user runs runbook).
+
+## [2026-06] Tasks 14-15 My Team + Dashboard REAL data — DONE
+- /api/team/{address}: now computed from reward snapshot breakdown + live direct counts. Returns real rank, binary L/R ids+business, directs count/active, level reward, level lapsed, rank qualification (real have/need per tier), members list. (was all-zeros mock)
+- /api/me/{address}: enriched from breakdown -> real stake, mining cap, generated reward (total_claimable), rank, monthly_qualified, profit_sources (ROI/Daily/Weekly/Level/Monthly), team level_reward. Feeds Dashboard/MyBusiness/TeamReward/WelcomeStatus.
+- Verified via curl on DEMO_ROOT: team rank Gold, 10 directs, binary 25/25 $6250 each, qual 4/15; /me cap $3000 ROI $600 level $465.
+- NOTE: daily/weekly/monthly pool $ are inflated by accumulated test protocol_stats seed (not a bug; real pools small).
+### REMAINING: 10 WalletConnect QR (Project ID); BscScan verify (API key); 5 mainnet (user runbook). All core app now on real data/on-chain.

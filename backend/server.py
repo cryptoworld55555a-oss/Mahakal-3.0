@@ -331,6 +331,16 @@ async def me(address: str):
         raise HTTPException(status_code=404, detail="User not found")
 
     active = doc.get("is_active", False)
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    bd = (snap.get("breakdown") or {}).get(addr, {})
+    stake = float(doc.get("total_deposited", 0) or 0)
+    cap = bd.get("mining_cap_usd", 0)
+    reward = bd.get("total_claimable_usd", 0)
+    roi = bd.get("self_roi_usd", 0)
+    level_inc = bd.get("level_income_usd", 0)
+    monthly = bd.get("monthly_pool_usd", 0)
+    daily = bd.get("daily_pool_usd", 0)
+    weekly = bd.get("weekly_pool_usd", 0)
     activity = [
         {
             "label": "Registration",
@@ -353,18 +363,20 @@ async def me(address: str):
         "is_active": active,
         "status": "Active" if active else "Inactive",
         "referral_code": doc["uid"],
-        "stake_usdt": 0.0,
-        "mining": {"available_cap_usdt": 0.0, "generated_reward_usdt": 0.0, "requires_usdt": 1.0},
-        "holding": {"ttn": 0.0, "mined_value_usdt": 0.0, "current_value_usdt": 0.0, "appreciation_usdt": 0.0},
-        "total_profit_usdt": 0.0,
+        "rank": bd.get("rank", "Active"),
+        "monthly_qualified": bd.get("monthly_qualified", False),
+        "stake_usdt": stake,
+        "mining": {"available_cap_usdt": cap, "generated_reward_usdt": reward, "requires_usdt": 1.0},
+        "holding": {"ttn": 0.0, "mined_value_usdt": reward, "current_value_usdt": 0.0, "appreciation_usdt": 0.0},
+        "total_profit_usdt": reward,
         "profit_sources": [
-            {"label": "Generation", "value": 0.0, "color": "#0AA84F"},
-            {"label": "Appreciation", "value": 0.0, "color": "#65B82E"},
-            {"label": "Direct", "value": 0.0, "color": "#D6C51E"},
-            {"label": "Level", "value": 0.0, "color": "#FFA000"},
-            {"label": "Owner Club", "value": 0.0, "color": "#12B76A"},
+            {"label": "ROI", "value": roi, "color": "#0AA84F"},
+            {"label": "Daily", "value": daily, "color": "#65B82E"},
+            {"label": "Weekly", "value": weekly, "color": "#D6C51E"},
+            {"label": "Level", "value": level_inc, "color": "#FFA000"},
+            {"label": "Monthly", "value": monthly, "color": "#12B76A"},
         ],
-        "team": {"direct_reward_usdt": 0.0, "level_reward_usdt": 0.0},
+        "team": {"direct_reward_usdt": level_inc, "level_reward_usdt": level_inc},
         "recent_activity": activity,
     }
 
@@ -379,37 +391,64 @@ async def team(address: str):
     if not doc:
         raise HTTPException(status_code=404, detail="User not found")
     active = doc.get("is_active", False)
+
+    # Real data from the latest reward snapshot + live direct counts.
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    bd = (snap.get("breakdown") or {}).get(addr, {})
+    binary = bd.get("binary", {})
+    rank = bd.get("rank", "Active")
+    adirects = bd.get("active_directs", 0)
+    dbiz = bd.get("direct_business_usd", 0)
+    lbiz = binary.get("left_business_usd", 0)
+    rbiz = binary.get("right_business_usd", 0)
+    lids = binary.get("left_ids", 0)
+    rids = binary.get("right_ids", 0)
+
+    # Direct referrals (live from DB)
+    direct_docs = await db.users.find({"sponsor": addr}).to_list(2000)
+    active_dir = sum(1 for u in direct_docs if u.get("is_active"))
+
+    def unlocked(name):
+        order = ["Active", "Star", "Silver", "Gold", "Diamond"]
+        return order.index(rank) >= order.index(name)
+
     levels = [
         {"name": "Level 1", "sub": "Active membership", "tier": "level1", "unlocked": active,
          "status": "Active" if active else "Inactive", "reqs": []},
-        {"name": "Star · Levels 2-3", "sub": "Active directs", "tier": "star", "unlocked": False,
-         "reqs": [{"label": "Active directs", "have": 0, "need": 5}]},
-        {"name": "Silver · Levels 4-6", "sub": "Active directs · Direct business", "tier": "silver", "unlocked": False,
-         "reqs": [{"label": "Active directs", "have": 0, "need": 5},
-                  {"label": "Direct business", "have": 0, "need": 1000, "money": True}]},
-        {"name": "Gold · Levels 7-9", "sub": "Active directs · Direct business", "tier": "gold", "unlocked": False,
-         "reqs": [{"label": "Active directs", "have": 0, "need": 10},
-                  {"label": "Direct business", "have": 0, "need": 2000, "money": True}]},
-        {"name": "Diamond · Levels 10-15", "sub": "Active directs · Direct business · Team business", "tier": "diamond", "unlocked": False,
-         "reqs": [{"label": "Active directs", "have": 0, "need": 10},
-                  {"label": "Direct business", "have": 0, "need": 2000, "money": True},
-                  {"label": "15-level team business", "have": 0, "need": 5000, "money": True}]},
+        {"name": "Star · Levels 2-3", "sub": "Active directs", "tier": "star", "unlocked": unlocked("Star"),
+         "reqs": [{"label": "Active directs", "have": adirects, "need": 3}]},
+        {"name": "Silver · Levels 4-6", "sub": "Active directs · Direct business", "tier": "silver", "unlocked": unlocked("Silver"),
+         "reqs": [{"label": "Active directs", "have": adirects, "need": 5},
+                  {"label": "Direct business", "have": dbiz, "need": 1000, "money": True}]},
+        {"name": "Gold · Levels 7-9", "sub": "Active directs · Direct business", "tier": "gold", "unlocked": unlocked("Gold"),
+         "reqs": [{"label": "Active directs", "have": adirects, "need": 10},
+                  {"label": "Direct business", "have": dbiz, "need": 2000, "money": True}]},
+        {"name": "Diamond · Levels 10-15", "sub": "Active directs · Direct business · Team business", "tier": "diamond", "unlocked": unlocked("Diamond"),
+         "reqs": [{"label": "Active directs", "have": adirects, "need": 15},
+                  {"label": "Direct business", "have": dbiz, "need": 5000, "money": True},
+                  {"label": "Leg business (L/R)", "have": min(lbiz, rbiz), "need": 5000, "money": True}]},
     ]
+    unlocked_count = sum(1 for lv in levels if lv["unlocked"])
     return {
         "uid": doc["uid"],
         "address": addr,
         "referral_code": doc["uid"],
-        "sponsor": _DEMO_SPONSOR,
+        "sponsor": doc.get("sponsor") or "—",
+        "rank": rank,
+        "monthly_qualified": bd.get("monthly_qualified", False),
         "structure": {
-            "left": {"business_usdt": 0.0, "team_size": 0},
-            "right": {"business_usdt": 0.0, "team_size": 0},
+            "left": {"business_usdt": lbiz, "team_size": lids},
+            "right": {"business_usdt": rbiz, "team_size": rids},
         },
-        "directs": {"reward_usdt": 0.0, "count": 0, "active": 0, "inactive": 0},
-        "level_summary": {"total_team_size": 0, "total_team_business_usdt": 0.0},
-        "accounting": {"direct_level_rewards_usdt": 0.0, "lapsed_usdt": 0.0},
-        "qualification": {"unlocked": 1 if active else 0, "total": 15, "levels": levels},
-        "members": [],
-        "total_members": 0,
+        "directs": {"reward_usdt": bd.get("level_income_usd", 0), "count": len(direct_docs),
+                    "active": active_dir, "inactive": len(direct_docs) - active_dir},
+        "level_summary": {"total_team_size": lids + rids, "total_team_business_usdt": lbiz + rbiz},
+        "accounting": {"direct_level_rewards_usdt": bd.get("level_income_usd", 0),
+                       "lapsed_usdt": bd.get("level_lapsed_usd", 0)},
+        "qualification": {"unlocked": unlocked_count, "total": 15, "levels": levels},
+        "members": [{"uid": u.get("uid"), "address": u["address"], "active": u.get("is_active", False),
+                     "stake_usdt": u.get("total_deposited", 0)} for u in direct_docs[:50]],
+        "total_members": len(direct_docs),
     }
 
 
