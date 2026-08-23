@@ -94,3 +94,9 @@ Deployer (throwaway, testnet-only): 0xCb64A7c9895A3807F23a23c25e0dB138b3A3e0cd
 Deploy cmd: `npx hardhat run scripts/deploy.js --network bscTestnet`. Deployer creds in contracts/.env (DEPLOYER_MNEMONIC) — TESTNET THROWAWAY (seed was shared in chat; never use for mainnet/real funds).
 On-chain testnet tests PASSED (scripts/onchain-test.js): register OK, MockUSDT faucet+approve OK, blockUser -> stake reverted, pause(block-all) -> whenActive reverted, unblock/unpause verified (isBlocked=false, paused=false).
 NOT yet done on testnet: full stake (60% buy TTN) + claim + sell — need TTN/USDT liquidity added on PancakeSwap testnet + backend signer service. Frontend still demo (on-chain switch pending).
+
+## FULL FLOW TESTED ON BSC TESTNET — 2026-06 ✅
+- PancakeSwap testnet liquidity added: 1000 TTN + 10000 USDT (1 TTN=$10). LP pair: 0xd861eb6d75271771980099ad79bD6B8A1b514717. (scripts/add-liquidity.js)
+- scripts/full-flow.js verified on-chain: stake $100 -> 60% bought ~6 TTN via Pancake (protocol reserve), 5% dev, 35% USDT reserve, miningCap 200. claimReward $10 (signed, capReduce) -> USDT reserve 35->25, cap 200->190. sellMined 2 TTN (signed) -> TTN reserve 6->3.95, cap 190->169.84 (reduced by USD received). Final state (scripts/state.js): totalStaked 100, miningCap 169.84, TTN reserve 3.95, USDT reserve 25 — all reconcile.
+- Signer = deployer (testnet). EIP-191 packed sigs. Scripts: deploy/check/onchain-test/add-liquidity/full-flow/state/verify.js.
+- REMAINING: backend signer service (level/matching/pool calc + real signatures), admin panel UI (search-block + pause + per-user cap/value), frontend on-chain switch (demo->real). Then audit -> mainnet (real USDT 0x55d398..., real router 0x10ED43...).
