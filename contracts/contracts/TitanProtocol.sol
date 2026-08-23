@@ -316,10 +316,10 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         require(cumulativeUsd > alreadyClaimed, "nothing to claim");
         uint256 claimable = cumulativeUsd - alreadyClaimed;
 
+        // CLAIM never reduces the mining cap. Cap is only reduced at SELL time, by the actual
+        // USDT received (live price). The `capReduce` bool now only separates two cumulative
+        // reward streams so re-published roots pay the correct delta.
         if (capReduce) {
-            Account storage a = accounts[msg.sender];
-            require(a.miningCap >= claimable, "no mining cap"); // no cap = no reward
-            a.miningCap -= claimable;
             claimedReducingUsd[msg.sender] = cumulativeUsd;
         } else {
             claimedNonReducingUsd[msg.sender] = cumulativeUsd;

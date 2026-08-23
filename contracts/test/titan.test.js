@@ -158,16 +158,16 @@ describe("TITAN Protocol + Security", function () {
     await expect(protocol.connect(user).stake(E(2000), 0, ethers.MaxUint256)).to.be.revertedWith("above daily max");
   });
 
-  it("Merkle claim: user claims own leaf (no backend sig), gets TTN at live price, cap reduces", async () => {
+  it("Merkle claim: user claims own leaf (no backend sig), gets TTN at live price, cap UNCHANGED (cap only reduces on sell)", async () => {
     await protocol.connect(user).register();
     await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256); // cap $200
     const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
 
     // Backend computes rewards off-chain and builds a Merkle tree. It signs NOTHING.
-    // Leaf = [user, cumulativeUsd, capReduce]. dev is a filler leaf.
+    // Leaf = [user, cumulativeUsd, streamFlag]. dev is a filler leaf.
     const values = [
-      [user.address, E(20).toString(), true],   // cap-reducing (level/direct/monthly)
-      [user.address, E(8).toString(), false],   // non-reducing (daily/weekly)
+      [user.address, E(20).toString(), true],
+      [user.address, E(8).toString(), false],
       [dev.address, E(3).toString(), true],
     ];
     const tree = StandardMerkleTree.of(values, ["address", "uint256", "bool"]);
@@ -180,12 +180,11 @@ describe("TITAN Protocol + Security", function () {
     const ttnBefore = await ttn.balanceOf(user.address);
     await protocol.connect(user).claimMerkle(E(20), true, 0, deadline, proofReduce);
     expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(20)); // 1:1 mock (live price)
-    expect((await protocol.accountOf(user.address))[3]).to.equal(E(180)); // 200 - 20 cap reduced
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(200)); // cap UNCHANGED by claim
 
-    // non-reducing daily/weekly does NOT touch cap
     await protocol.connect(user).claimMerkle(E(8), false, 0, deadline, proofNon);
     expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(28));
-    expect((await protocol.accountOf(user.address))[3]).to.equal(E(180)); // unchanged
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(200)); // still unchanged
   });
 
   it("Merkle claim: cumulative pays only delta; re-claim same amount reverts; forged proof reverts", async () => {
@@ -197,7 +196,7 @@ describe("TITAN Protocol + Security", function () {
     let tree = StandardMerkleTree.of([[user.address, E(10).toString(), true]], ["address", "uint256", "bool"]);
     await protocol.setMerkleRoot(tree.root);
     await protocol.connect(user).claimMerkle(E(10), true, 0, deadline, tree.getProof([user.address, E(10).toString(), true]));
-    expect((await protocol.accountOf(user.address))[3]).to.equal(E(190));
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(200)); // claim never touches cap
 
     // re-claim same cumulative -> nothing new
     await expect(
@@ -210,7 +209,7 @@ describe("TITAN Protocol + Security", function () {
     const ttnBefore = await ttn.balanceOf(user.address);
     await protocol.connect(user).claimMerkle(E(25), true, 0, deadline, tree.getProof([user.address, E(25).toString(), true]));
     expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(15)); // delta only
-    expect((await protocol.accountOf(user.address))[3]).to.equal(E(175)); // 190 - 15
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(200)); // cap still unchanged by claim
 
     // forged amount (not in tree) -> bad proof
     await expect(

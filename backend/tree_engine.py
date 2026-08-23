@@ -1,15 +1,13 @@
 """TITAN Referral Tree Engine.
 
 Walks the REAL referral network (sponsor edges) and the BINARY tree (sponsor-chosen
-left/right placement) and computes each user's cumulative USD entitlement, then emits
-Merkle leaves consumed by merkle.build():
-  - Self ROI      : 0.5%/day of mining cap, capped at cap                     -> CAP-REDUCING bucket
-  - Level income  : 25% cascade up 15 uplines, gated by each upline's rank    -> CAP-REDUCING bucket
-  - Monthly pool  : shared EQUALLY among monthly-QUALIFIED achievers          -> CAP-REDUCING bucket
-  - Daily pool    : shared among active users                                 -> non-reducing bucket
-  - Weekly pool   : shared among rank >= Silver                               -> non-reducing bucket
+left/right placement) and computes each user's cumulative USD reward entitlement, then emits
+Merkle leaves consumed by merkle.build(). ALL rewards (ROI, level, daily, weekly, monthly)
+are claimed as TTN bought live from PancakeSwap into the user's wallet.
 
-Cap RULE: mining cap is reduced by EVERYTHING except the daily pool and weekly pool.
+Cap RULE: CLAIM never touches the mining cap. The mining cap is reduced ONLY when the user
+SELLS TTN -> USDT, by the ACTUAL USDT received at the live price. (The capReduce bool on a
+leaf now only separates two cumulative reward streams; it no longer affects the cap.)
 
 Binary is used ONLY for qualification (no matching income). Monthly qualification =
 active + own stake >= $50 + 10 active directs (>= $50 each) + $2000 direct business +
@@ -158,9 +156,10 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
         d_share = daily_share if a in active_set else 0
         w_share = weekly_share if a in silver_plus else 0
 
-        # Cap-reducing = self ROI + level income + monthly pool (everything except daily & weekly pools)
-        reducing = min(self_roi[a] + level_income[a] + m_share, caps[a])   # never exceed mining cap
-        non_reducing = d_share + w_share
+        # Two cumulative reward streams (cap is NOT touched at claim; only at sell).
+        # streamA = self ROI + level income + monthly pool; streamB = daily + weekly pool.
+        stream_a = self_roi[a] + level_income[a] + m_share
+        stream_b = d_share + w_share
 
         breakdown[a] = {
             "address": a,
@@ -181,12 +180,13 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
             "daily_pool_usd": round(d_share, 6),
             "weekly_pool_usd": round(w_share, 6),
             "monthly_pool_usd": round(m_share, 6),
-            "cumulative_reducing_usd": round(reducing, 6),
-            "cumulative_nonreducing_usd": round(non_reducing, 6),
+            "claimable_stream_a_usd": round(stream_a, 6),
+            "claimable_stream_b_usd": round(stream_b, 6),
+            "total_claimable_usd": round(stream_a + stream_b, 6),
         }
-        if reducing > 0:
-            leaves.append((a, int(round(reducing * 1e18)), True))
-        if non_reducing > 0:
-            leaves.append((a, int(round(non_reducing * 1e18)), False))
+        if stream_a > 0:
+            leaves.append((a, int(round(stream_a * 1e18)), True))
+        if stream_b > 0:
+            leaves.append((a, int(round(stream_b * 1e18)), False))
 
     return leaves, breakdown

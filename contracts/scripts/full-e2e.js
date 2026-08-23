@@ -79,7 +79,7 @@ async function main() {
   const capAfterR = (await protocol.accountOf(d.address))[3];
   const pA1 = await priceTTN();
   console.log("CLAIM level+monthly ($" + reducingUsd + "):");
-  console.log("  TTN received:", F(gotR), "| cap:", F(cap0), "->", F(capAfterR), "(reduced by $" + reducingUsd + " ✓)");
+  console.log("  TTN received:", F(gotR), "| cap:", F(cap0), "->", F(capAfterR), capAfterR === cap0 ? "(UNCHANGED ✓ claim never hits cap)" : "(CHANGED ✗)");
   console.log("  price: $" + pB1.toFixed(4), "->", "$" + pA1.toFixed(4), pA1 > pB1 ? "(UP ✓ buying pressure)" : "(??)", "\n");
 
   // ---- CLAIM #2: non-reducing bucket (ROI+daily+weekly) -> cap UNCHANGED, TTN at live price
@@ -109,7 +109,7 @@ async function main() {
   console.log("  USDT received:", F(usdtGot), "| cap:", F(capAfterN), "->", F(capAfterSell), "(reduced by ~USDT received ✓)");
   console.log("  price: $" + pB3.toFixed(4), "->", "$" + pA3.toFixed(4), pA3 < pB3 ? "(DOWN ✓ sell pressure)" : "(??)", "\n");
 
-  console.log("=== SUMMARY: claim pays TTN at LIVE price for every reward type; monthly+level reduce cap;");
-  console.log("    ROI+daily+weekly do NOT reduce cap; claim pushes price UP, sell pushes price DOWN. ===");
+  console.log("=== SUMMARY: every reward type is claimed as TTN at LIVE price; CLAIM never touches cap;");
+  console.log("    cap reduces ONLY on SELL by actual USDT received; claim pushes price UP, sell pushes price DOWN. ===");
 }
 main().catch((e) => { console.error(e.shortMessage || e.message || e); process.exit(1); });

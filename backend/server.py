@@ -745,8 +745,7 @@ async def admin_users(q: str = "", page: int = 1, limit: int = 25,
             "mining_cap_usd": bd.get("mining_cap_usd", 0),
             "monthly_qualified": bd.get("monthly_qualified", False),
             "binary": bd.get("binary", {}),
-            "cumulative_reducing_usd": bd.get("cumulative_reducing_usd", 0),
-            "cumulative_nonreducing_usd": bd.get("cumulative_nonreducing_usd", 0),
+            "total_claimable_usd": bd.get("total_claimable_usd", 0),
         })
     return {"total": total, "page": page, "limit": limit, "rows": rows}
 

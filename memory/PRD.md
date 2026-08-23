@@ -212,3 +212,11 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - tree_engine: cap-REDUCING bucket = self ROI + level income + monthly pool (was: only level+monthly). Non-reducing = daily pool + weekly pool ONLY. Self ROI MOVED to cap-reducing.
 - On-chain: no contract change needed (claimMerkle capReduce flag already supports it); self-ROI leaf now emitted with capReduce=true. reducing sum still clamped to mining cap.
 - Verified via demo: reducing = ROI+level+monthly (capped at cap), non-reducing = daily+weekly only.
+
+## [2026-06] CAP MODEL FINALISED (user): cap reduces ONLY on SELL by actual USDT (claim never touches cap)
+- User rule: all rewards (ROI/level/daily/weekly/monthly) claim -> PancakeSwap buy -> TTN to wallet, cap UNCHANGED. Cap (USDT) reduces ONLY when user SELLS TTN, by actual USDT received at live price. Example: claim $50, price 2x, sell for $100 -> cap -$100. Reason: cap-at-claim would spike price too fast (admin loss). Daily/weekly NOT specially exempt (option a - all sells reduce cap; simplest & safest).
+- Contract: claimMerkle NO LONGER reduces miningCap (removed require/subtract); capReduce bool now just separates two cumulative streams. sell() reduces cap by actual usdtOut (unchanged). Local tests 12/12 pass.
+- Backend tree_engine: removed cap clamp; emits stream_a (roi+level+monthly) + stream_b (daily+weekly) leaves; breakdown now has total_claimable_usd/claimable_stream_a/b (removed cumulative_reducing/nonreducing). server admin_users updated.
+- REAL TESTNET e2e (full-e2e.js) verified: 2 claims cap 200->200 UNCHANGED + price UP; sell 3 TTN -> cap 200->169.65 (actual USDT) + price DOWN.
+- NEW deployment (has liquidity+reserve): PROTOCOL 0x53F278bfCa7acED4c41734FF78840d52fdFD1a6f, TTN 0xd3123574F7C204c73c982972ea46b1086Bbe1079, USDT 0x2e64bc6A..., SECURITY 0x314DCAb3..., COMMUNITY 0x073DB912... (config.js + .env updated).
+- CLEANUP-before-mainnet: legacy signature claimReward() still reduces cap (unused by frontend/engine) - remove during audit prep.
