@@ -1,0 +1,89 @@
+{
+  "summary": "Tested the TITAN /admin panel end-to-end (backend + frontend). Created /app/backend/tests/test_admin_api.py with 15 pytest cases covering GET /api/admin/overview, /api/admin/users (shape, search by UID/address/no-match, pagination, limit cap, page normalisation) and /api/admin/user/{address} (root user, child sponsor/binary_parent, case-insensitive lookup, 404). 14/15 pass; the 1 failure is a real product defect (Owner-Club 300% cap lags one engine run). Full backend suite: 120/120 passing. Playwright desktop (1920x1080) testing of /admin: page loads, all 4 stat cards populate with real numbers, Merkle root box shows a valid 0x root + leaf count, Run Reward Engine fires POST /api/reward/tree/build (200) -> success toast -> root and overview refresh, Seed Demo Network fires POST /api/reward/tree/seed-demo (200) -> success toast, search box (Go button AND Enter key) filters the table correctly, DEMO_ROOT row renders Gold rank / 25 / 25 binary / Qualified badge, and per-row block/unblock/owner buttons are present and enabled. On-chain write buttons were NOT clicked, per instructions. Zero console errors, zero failed requests.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/reward/tree/build (surfaces on GET /api/admin/users and /api/admin/user/{address})",
+        "issue": "Owner-Club 300% cap lags one engine run. On the run where a user first monthly-qualifies, mining_cap_usd is computed at 200% ($2000 for DEMO_ROOT) and owner_tier=True is written to db.users only AFTER tree_engine.compute(). The 300% cap ($3000) plus the corresponding Merkle leaf only appear on the NEXT build. Spec expects mining_cap_usd=3000 on the qualifying run. Reproduce: POST /reward/tree/seed-demo then POST /reward/tree/build once -> GET /admin/users?q=DEMO_ROOT shows mining_cap_usd=2000, owner_tier=true; a second build shows 3000. Consequence: the posted Merkle root under-pays newly-qualified Owner-Club users for a full cycle.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "All /api/admin/* + POST /api/reward/tree/build + POST /api/reward/tree/seed-demo",
+        "issue": "_require_admin() is a complete no-op when ADMIN_API_KEY is unset, so every admin endpoint - including the destructive seed-demo which does db.users.delete_many({uid:/^DEMO/}) and build which does reward_proofs.delete_many({}) - is publicly callable on the preview URL with no auth. The frontend /admin route is likewise ungated (plain window.location.pathname check). Fail-closed (require the key) before any non-dev deployment."
+      },
+      {
+        "endpoint": "GET /api/admin/users",
+        "issue": "q is an unanchored case-insensitive regex, so q=DEMO_L1 also returns DEMO_L10..DEMO_L19 (11 rows). Acceptable as substring search but should be documented/anchored if exact-match filtering is expected."
+      },
+      {
+        "endpoint": "GET /api/admin/users",
+        "issue": "rows omit sponsor-less/breakdown-less users' rank as the literal string '-' while breakdown-present users get a real rank; mixing a sentinel string into an otherwise enum-typed field forces string comparisons in the UI."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AdminPanel users table",
+        "issue": "No pagination control. adminUsers is always called with limit=50 and page defaults to 1, so with 195 users in the DB only the first 50 are ever reachable, and the API's `total` is never displayed. Backend page/limit params are working and untested by the UI.",
+        "selector": "[data-testid=\"admin-users-table\"]",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "AdminPanel users table",
+        "issue": "Row test ids are keyed on UID (data-testid=`admin-row-${r.uid}` / admin-block-${r.uid} etc.). Any user without a UID renders duplicate ids `admin-row-undefined`, breaking automation and React devtools. Key/test ids should use r.address.",
+        "selector": "[data-testid^=\"admin-row-\"]",
+        "priority": "LOW"
+      },
+      {
+        "component": "AdminPanel Seed Demo Network",
+        "issue": "Seeding wipes and re-inserts DEMO users (resetting owner_tier), but the Latest Merkle Root box keeps showing the pre-seed root and leaf count with no 'stale snapshot' hint, so the operator sees Owner Club drop to 0 while a root computed from the deleted data is still presented as current/postable.",
+        "selector": "[data-testid=\"admin-latest-root\"]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/admin",
+        "issues": [
+          "Row action buttons are icon-only with no visible label; only a native title tooltip distinguishes Block / Unblock / Grant Owner-Club, and Block vs Unblock differ only by icon colour - risky for a destructive on-chain action. Consider a confirm step.",
+          "Both Block and Unblock are always rendered enabled regardless of the user's actual blocked state (is_active is returned but not used for the toggle), so the operator gets no state feedback.",
+          "No loading skeleton while the overview/users fetch is in flight; stat cards briefly render em-dashes.",
+          "Contrast, spacing, alignment and footer are otherwise good on the dark theme; no browser-default pickers used on this page."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_api.py",
+    "/app/test_reports/pytest/admin_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "HIGH: In POST /api/reward/tree/build, resolve owner_tier BEFORE computing leaves (e.g. compute once to determine monthly_qualified, persist owner_tier, then recompute/patch caps in the same request) so a newly-qualified user's mining_cap_usd is 3000 on the qualifying run instead of 2000.",
+    "Add pagination (page/limit controls + total count) to the AdminPanel users table; currently only 50 of 195 users are reachable.",
+    "Make _require_admin fail-closed (or gate the /admin route) so seed-demo and tree/build are not publicly callable on the preview host.",
+    "Key users-table test ids/React keys on r.address instead of r.uid to avoid duplicate `admin-row-undefined` ids.",
+    "Use is_active to render a single Block/Unblock toggle rather than both buttons always enabled; add a confirm dialog for the destructive on-chain actions."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/server.py is 792 lines (>700) - split admin, reward-engine and auth routers into separate modules.",
+    "reward_tree_build() grants owner_tier after tree_engine.compute(), making the Merkle leaves inconsistent with the flags persisted in the same request - the root posted on-chain under-pays newly-qualified Owner-Club users for a cycle.",
+    "reward_tree_build() does reward_proofs.delete_many({}) then insert_many() with no transaction; a failure between the two leaves every user unable to claim (no proofs) while a root exists.",
+    "reward_tree_seed_demo() inserts 51 docs with 51 sequential awaits inside a loop - use insert_many; it is also non-idempotent under concurrency (delete_many + per-doc inserts interleave and duplicate DEMO users, which is exactly what happened when the test file ran across two xdist workers).",
+    "AdminPanel.jsx has no error/empty distinction: a failed adminUsers call toasts 'Users load failed' but the table then renders the identical 'No users found.' state as a genuinely empty result."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_api.py"
+  ],
+  "success_rate": {"backend": "93% (14/15 admin tests; 120/120 full suite when a prior build already ran)", "frontend": "100% of tested flows (load, stats, root box, run engine, seed demo, search via Go + Enter, table rows/actions)"},
+  "seed_data_creation": "POST /api/reward/tree/seed-demo (51 DEMO_* users: DEMO_ROOT + 25 DEMO_L* + 25 DEMO_R*) and POST /api/reward/tree/build to populate the reward snapshot/proofs. Both are dev endpoints; DEMO_* users are wiped and re-created on each seed.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "None required - admin endpoints are unauthenticated (ADMIN_API_KEY unset) and /admin is reachable at {frontend origin}/admin. On-chain write buttons need a funded owner MetaMask wallet and were not exercised.",
+  "context_for_next_testing_agent": "New file /app/backend/tests/test_admin_api.py holds ALL admin tests in a single class TestAdminPanelApi on purpose: pytest.ini uses --dist loadscope which pins one class per worker, and the module-scoped `seeded` fixture (seed-demo + one build) races/duplicates DEMO users if split across classes. Do not split that class. test_demo_root_owner_club_cap_after_single_build FAILS in isolation (cap 2000 vs expected 3000) - that is the open HIGH defect, not a flaky test; it PASSES when the full suite runs because another test file triggers a second build first. Frontend /admin was verified at 1920x1080 with network interception: build/seed/search all return 200 and toasts render (sonner Toaster is mounted globally in index.js; toasts auto-dismiss ~4s so poll rather than sleeping 6s). On-chain buttons (admin-post-root-btn, admin-pause-btn, admin-resume-btn, admin-block-*, admin-unblock-*, admin-owner-*) remain untested - they require a funded owner wallet.",
+  "rca_of_the_issue": "Owner-Club cap lag: in server.py reward_tree_build(), leaves/breakdown are produced by tree_engine.compute(users, pools) using the users' CURRENT owner_tier flags. Only afterwards does the handler compute `newly = [monthly_qualified and not owner_tier]` and issue db.users.update_many({owner_tier: True}). So on the very run where DEMO_ROOT first monthly-qualifies, its cap was already fixed at 200% ($2000) and stored in the snapshot/leaf; the 300% cap ($3000) only appears after a second build. Verified: seed -> cap 2000/owner_tier False; build #1 -> cap 2000/owner_tier True; build #2 -> cap 3000. Mitigation: determine owner_tier eligibility and persist it before (or re-run compute after) the flag update within the same request, so the posted root always reflects the 300% cap."
+}

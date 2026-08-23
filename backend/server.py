@@ -584,6 +584,18 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
     _require_admin(x_admin_key)
     users, pools = await _load_network()
     leaves, breakdown = tree_engine.compute(users, pools)
+
+    # One-time Owner-Club: first monthly qualification grants 300% cap permanently.
+    # Apply it BEFORE finalizing so the 300% cap reflects in the SAME run (no 1-run lag).
+    newly = [a for a, bd in breakdown.items() if bd.get("monthly_qualified") and not bd.get("owner_tier")]
+    if newly:
+        await db.users.update_many({"address": {"$in": newly}}, {"$set": {"owner_tier": True}})
+        newly_set = set(newly)
+        for u in users:
+            if u["address"].lower() in newly_set:
+                u["owner_tier"] = True
+        leaves, breakdown = tree_engine.compute(users, pools)  # recompute with 300% caps applied
+
     result = merkle.build(leaves)
     snapshot = {
         "root": result["root"],
@@ -598,10 +610,6 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
         {"_id": "latest", **snapshot, "breakdown": breakdown},
         upsert=True,
     )
-    # One-time Owner-Club: first monthly qualification grants 300% cap permanently.
-    newly = [a for a, bd in breakdown.items() if bd.get("monthly_qualified") and not bd.get("owner_tier")]
-    if newly:
-        await db.users.update_many({"address": {"$in": newly}}, {"$set": {"owner_tier": True}})
     # Store proofs per-user (avoids the 16MB single-doc limit at scale).
     await db.reward_proofs.delete_many({})
     grouped: dict = {}
@@ -683,6 +691,90 @@ async def reward_tree_seed_demo(x_admin_key: Optional[str] = Header(default=None
             "last_seen": now.isoformat(),
         })
     return {"seeded": len(nodes), "root_address": addr_of["DEMO_ROOT"], "addresses": addr_of}
+
+
+# ------------------------------------------------------------------ Admin panel (read + management data)
+@api_router.get("/admin/overview")
+async def admin_overview(x_admin_key: Optional[str] = Header(default=None)):
+    _require_admin(x_admin_key)
+    total = await db.users.count_documents({})
+    active = await db.users.count_documents({"is_active": True})
+    owner = await db.users.count_documents({"owner_tier": True})
+    agg = await db.users.aggregate([{"$group": {"_id": None, "sum": {"$sum": "$total_deposited"}}}]).to_list(1)
+    total_staked = float(agg[0]["sum"]) if agg else 0.0
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    return {
+        "user_count": total,
+        "active_count": active,
+        "owner_club_count": owner,
+        "total_staked_usd": round(total_staked, 2),
+        "latest_root": snap.get("root"),
+        "latest_root_at": snap.get("created_at"),
+        "latest_leaf_count": snap.get("leaf_count", 0),
+        "pools": snap.get("pools", {}),
+    }
+
+
+@api_router.get("/admin/users")
+async def admin_users(q: str = "", page: int = 1, limit: int = 25,
+                      x_admin_key: Optional[str] = Header(default=None)):
+    _require_admin(x_admin_key)
+    query = {}
+    if q:
+        q = q.strip()
+        query = {"$or": [
+            {"address": {"$regex": _re.escape(q.lower()), "$options": "i"}},
+            {"uid": {"$regex": _re.escape(q), "$options": "i"}},
+        ]}
+    page = max(1, page); limit = max(1, min(100, limit))
+    total = await db.users.count_documents(query)
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    bmap = snap.get("breakdown") or {}
+    rows = []
+    async for u in db.users.find(query).skip((page - 1) * limit).limit(limit):
+        addr = u["address"].lower()
+        bd = bmap.get(addr, {})
+        rows.append({
+            "address": addr,
+            "uid": u.get("uid"),
+            "sponsor": u.get("sponsor"),
+            "stake_usd": float(u.get("total_deposited", 0) or 0),
+            "is_active": bool(u.get("is_active", False)),
+            "owner_tier": bool(u.get("owner_tier", False)),
+            "rank": bd.get("rank", "-"),
+            "mining_cap_usd": bd.get("mining_cap_usd", 0),
+            "monthly_qualified": bd.get("monthly_qualified", False),
+            "binary": bd.get("binary", {}),
+            "cumulative_reducing_usd": bd.get("cumulative_reducing_usd", 0),
+            "cumulative_nonreducing_usd": bd.get("cumulative_nonreducing_usd", 0),
+        })
+    return {"total": total, "page": page, "limit": limit, "rows": rows}
+
+
+@api_router.get("/admin/user/{address}")
+async def admin_user_detail(address: str, x_admin_key: Optional[str] = Header(default=None)):
+    _require_admin(x_admin_key)
+    addr = address.lower()
+    u = await db.users.find_one({"address": addr})
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    bd = (snap.get("breakdown") or {}).get(addr, {})
+    pdoc = await db.reward_proofs.find_one({"_id": addr})
+    return {
+        "address": addr,
+        "uid": u.get("uid"),
+        "sponsor": u.get("sponsor"),
+        "binary_parent": u.get("binary_parent"),
+        "binary_side": u.get("binary_side"),
+        "stake_usd": float(u.get("total_deposited", 0) or 0),
+        "is_active": bool(u.get("is_active", False)),
+        "owner_tier": bool(u.get("owner_tier", False)),
+        "activated_at": u.get("activated_at"),
+        "breakdown": bd,
+        "proofs": pdoc.get("proofs", []) if pdoc else [],
+    }
+
 
 
 app.include_router(api_router)

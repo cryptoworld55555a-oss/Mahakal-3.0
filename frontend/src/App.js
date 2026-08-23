@@ -9,10 +9,15 @@ import PoolsPage from "@/components/PoolsPage";
 import MyTeamPage from "@/components/MyTeamPage";
 import BottomNav from "@/components/BottomNav";
 import Landing from "@/components/Landing";
+import AdminPanel from "@/components/AdminPanel";
 
 function App() {
   const { isConnected } = useWallet();
   const [tab, setTab] = useState("dashboard");
+
+  if (typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "") === "/admin") {
+    return <AdminPanel />;
+  }
 
   return (
     <div className={`relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col overflow-x-hidden bg-[#04110A] text-white shadow-2xl ${isConnected ? "pb-24" : ""}`}>

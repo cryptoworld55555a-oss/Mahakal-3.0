@@ -191,3 +191,12 @@ On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permis
 - User model: added binary_parent, binary_side. _load_network reads them.
 ### Known minor/scale (non-blocking): admin-key gate is no-op unless ADMIN_API_KEY set; leg_stats O(N^2) on deep chains (memoize before scaling); monthly-pool share above a user's cap is clamped (excess not redistributed - revisit if real pool is large); merkle_roots collection grows per build (add TTL later).
 ### Binary PENDING: frontend placement capture (sponsor picks left/right at register); admin view of binary legs.
+
+## [2026-06] Admin Panel + Block-All + cap-lag fix — DONE
+- Admin Panel at /admin (AdminPanel.jsx): overview stats, user search/table (rank/cap/binary/monthly), Run Reward Engine, Post Root On-chain, per-user block/unblock/owner-tier, Pause/Resume, Seed Demo. Backend: /api/admin/overview, /api/admin/users (search+paginate), /api/admin/user/{address}. iter_14: backend 120/120, frontend load/engine/search/seed pass.
+- NEW: "Block ALL Users" + "Unblock ALL Users" buttons (adminChain.blockAllOnChain = on-chain global pause; single cheap tx blocks activate/claim/sell for everyone via whenActive). Confirm dialog before firing.
+- FIXED CRITICAL (iter_14): Owner-Club 300% cap lagged one engine run. build now applies newly-qualified owner_tier and RE-COMPUTES in the SAME run -> 300% cap immediate. Verified: fresh seed + single build => cap 3000.
+### DECISION: token ownership renounce is deferred to the VERY END (mainnet, after all whitelisting). Protocol/Security stay owner-controlled.
+### REMAINING BACKLOG (updated):
+DONE: Binary(1), Owner-Club 300%(2), Admin UI/root-post/owner-tier(17,18,19), reward+tree engine, Merkle claim.
+PENDING: Renewal 200d/$10 (3); Professional audit (4); Mainnet prep + renounce LAST + LP burn (5); WalletConnect real ID+QR (10); Frontend real Stake(11)/Claim-claimMerkle(12)/Sell(13); My Team real data(14); Dashboard/Mining/Pools real data(15); Referral link UI ?ref=uid (16); Multi-ID real testnet e2e (20).
