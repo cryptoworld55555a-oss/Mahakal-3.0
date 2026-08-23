@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-chai-matchers");
 require("dotenv").config();
 
 const { DEPLOYER_PRIVATE_KEY, BSCSCAN_API_KEY } = process.env;

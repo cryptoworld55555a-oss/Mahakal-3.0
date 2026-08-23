@@ -64,3 +64,21 @@ Mobile-first DeFi dApp on BNB Smart Chain. Users activate an ID with USDT (min $
 - Download PPT -> "coming soon" toast; social/footer links -> "coming soon" toast (placeholders, per user).
 - Backend: /dashboard/stats now returns "liquidity" {usdt, ttn, value_usd, pair}.
 - Tested: backend curl (liquidity + price ok); frontend screenshots (all sections render, wallet modal opens, Demo connect -> Dashboard, Landing hidden, BottomNav visible). DEMO data.
+
+## Smart Contracts — 2026-06 (Security/Admin + Protocol written & tested)
+Mechanism source of truth: AETHERA whitepaper (user confirmed TITAN = same, only name TTN). Business rules CONFIG-BASED (admin-settable), NOT hardcoded.
+- Split: 60% reserve (buy TTN on Pancake, stored in contract) / 5% dev / 35% reward reserve.
+- 25% Level income (of 35 bucket): L1(direct)=7%, L2-3=3% each, L4-6=2% each, L7-9=1% each, L10-15=0.5% each = 25%. Daily 5% + Weekly 5%. Monthly pool = deduction from Daily+Weekly payouts only (per user override).
+- Mining cap 200% standard / 300% Owner Club; 0.5%/day generation (off-chain). CAP REDUCES ON SELL (USD extracted at market rate), capped at available; restake for more. Reward lapses if no cap (direct/level/monthly reduce cap; daily/weekly do NOT).
+- Registration FREE; renewal $10 / 200 days. Owner qualify: Diamond + $5000 both legs (25+25 IDs).
+- Architecture = HYBRID: funds/activation/stake/mining-cap/PancakeSwap buy&sell on-chain; MLM/level/matching/pool math off-chain, authorized via backend EIP-191 signed messages + nonce replay protection.
+
+Contracts (/app/contracts/contracts):
+- TitanToken.sol (existing) — BEP-20, 200k capped.
+- TitanSecurityAdmin.sol (NEW) — security/control center, NO funds. AccessControl roles (DEFAULT_ADMIN/ADMIN/PAUSER), block/unblock (blocked user cannot activate/stake/claim/reward/sell), batch block, global pause/resume, approvedContract registry, protected system wallets (DEV/DAILY/WEEKLY/MONTHLY/LIQUIDITY, updatable only by DEFAULT_ADMIN=multisig), whenActive() + requireApproved() guards, events for every action.
+- TitanProtocol.sol (NEW) — core funds+logic. register/renew, stake (split+buy TTN+grant cap+daily-max+multiples), claimReward (signed, capReduce flag), sellMined (signed, swap TTN->USDT, cap reduce = USD out, capped), admin config setters (split/caps/limits/renewal/router/signer/wallets/ownerTier), Ownable, ReentrancyGuard, SafeERC20, security.whenActive checks.
+- MockUSDT.sol / MockRouter.sol (test-only), CommunityFund.sol (existing).
+
+Testing: `npx hardhat test` → 7/7 passing (stake split+cap, block halts, pause halts, signed claim + nonce replay, no-cap-no-reward, sell reduces cap, stake validation). Compiles clean (solc 0.8.24, evmVersion paris, OZ 5.0.2).
+
+TODO next: level-income cascade + pool eligibility backend (off-chain signer service), EIP-712 typed signatures (currently EIP-191 packed), appreciation-on-sell exact math, deploy scripts wiring (SecurityAdmin.setApprovedContract(protocol), setSystemWallets), then BSC Testnet deploy (needs funded deployer key) + frontend on-chain switch.
