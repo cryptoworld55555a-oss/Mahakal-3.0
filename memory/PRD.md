@@ -260,3 +260,8 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Verified via curl on DEMO_ROOT: team rank Gold, 10 directs, binary 25/25 $6250 each, qual 4/15; /me cap $3000 ROI $600 level $465.
 - NOTE: daily/weekly/monthly pool $ are inflated by accumulated test protocol_stats seed (not a bug; real pools small).
 ### REMAINING: 10 WalletConnect QR (Project ID); BscScan verify (API key); 5 mainnet (user runbook). All core app now on real data/on-chain.
+
+## [2026-06] A-to-Z verification (user request)
+- Engine rank spectrum: demo ROOT bumped to 16 directs -> now Diamond (25/25 binary IDs, $8750/leg, monthly qualified, level $749). All ranks Active->Diamond compute correctly.
+- Fresh on-chain full-e2e (testnet, clean): buy/stake cap 200; claim stream-A (level+monthly) 1.477 TTN cap-unchanged price-UP; claim stream-B (ROI+daily+weekly = auto pool) 0.884 TTN cap-unchanged price-UP; sell 3 TTN -> $30.35 cap 200->169.65 price-DOWN. All A-to-Z functions verified.
+- CONSTRAINT (honest): true 50-wallet multi-ID ON-CHAIN rank test not run (only 1 funded testnet wallet; can't gas-fund many). Ranks/binary/pools are off-chain calc (unit-tested 105+); on-chain fns are user-agnostic & testnet-proven.

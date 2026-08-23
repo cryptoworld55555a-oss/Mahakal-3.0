@@ -704,9 +704,9 @@ async def reward_tree_seed_demo(x_admin_key: Optional[str] = Header(default=None
             else:
                 bparent = uids[(i - 1) // 2]
                 side = "left" if i % 2 == 1 else "right"
-            # First 5 of each leg are ROOT's direct sponsors (=> 10 directs, $2500 direct business)
-            sponsor = "DEMO_ROOT" if i < 5 else bparent
-            nodes.append((uid, sponsor, bparent, side, 250, True, 12))
+            # First 8 of each leg are ROOT's direct sponsors (=> 16 directs, big direct business -> Diamond)
+            sponsor = "DEMO_ROOT" if i < 8 else bparent
+            nodes.append((uid, sponsor, bparent, side, 350, True, 12))
         return uids
 
     build_leg("L", "left")
