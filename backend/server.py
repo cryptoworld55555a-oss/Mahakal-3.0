@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,6 +17,7 @@ from eth_account.messages import encode_defunct
 
 import reward_engine as rw
 import merkle
+import tree_engine
 import re as _re
 from pydantic import field_validator
 
@@ -92,6 +93,7 @@ class VerifyRequest(BaseModel):
     address: str
     signature: str
     message: str
+    ref: Optional[str] = None   # sponsor uid (TTN1xxxxx) or sponsor address
 
 
 class ActivateRequest(BaseModel):
@@ -111,6 +113,23 @@ async def _next_uid() -> str:
     return f"TTN{100000 + seq}"
 
 
+async def _resolve_sponsor(ref: Optional[str], self_addr: str) -> Optional[str]:
+    """Resolve a referral code (uid TTN1xxxxx or wallet address) to a sponsor address."""
+    if not ref:
+        return None
+    ref = ref.strip()
+    sp = None
+    if ref.lower().startswith("0x") and len(ref) == 42:
+        sp = await db.users.find_one({"address": ref.lower()})
+    else:
+        sp = await db.users.find_one({"uid": ref.upper()})
+    if not sp:
+        return None
+    if sp["address"].lower() == self_addr.lower():
+        return None  # cannot sponsor self
+    return sp["address"].lower()
+
+
 def _public_user(doc: dict) -> dict:
     return {
         "address": doc["address"],
@@ -118,6 +137,7 @@ def _public_user(doc: dict) -> dict:
         "is_active": doc.get("is_active", False),
         "activated_at": doc.get("activated_at"),
         "total_deposited": doc.get("total_deposited", 0),
+        "sponsor": doc.get("sponsor"),
         "created_at": doc.get("created_at"),
     }
 
@@ -190,9 +210,12 @@ async def verify(body: VerifyRequest):
         return _public_user(existing)
 
     uid = await _next_uid()
+    sponsor_addr = await _resolve_sponsor(body.ref, addr)
     user = User(address=addr, uid=uid, last_seen=now)
-    await db.users.insert_one(user.model_dump())
-    return _public_user(user.model_dump())
+    doc = user.model_dump()
+    doc["sponsor"] = sponsor_addr
+    await db.users.insert_one(doc)
+    return _public_user(doc)
 
 
 @api_router.get("/user/{address}")
@@ -521,6 +544,127 @@ async def reward_merkle_latest():
     if not doc:
         return {"root": None, "leaf_count": 0}
     return {"root": doc["root"], "leaf_count": doc.get("leaf_count", 0), "created_at": doc.get("created_at")}
+
+
+async def _load_network():
+    """Read the real referral network from the DB into tree_engine input shape."""
+    users = []
+    async for u in db.users.find({}):
+        users.append({
+            "address": u["address"].lower(),
+            "sponsor": (u.get("sponsor") or None),
+            "stake_usd": float(u.get("total_deposited", 0) or 0),
+            "owner_tier": bool(u.get("owner_tier", False)),
+            "active": bool(u.get("is_active", False)),
+            "activated_at": u.get("activated_at"),
+        })
+    stats = await db.protocol_stats.find_one({"_id": "protocol"}) or {}
+    pools = {
+        "daily": float(stats.get("daily_pool_usdt", 0) or 0),
+        "weekly": float(stats.get("weekly_pool_usdt", 0) or 0),
+        "monthly": float(stats.get("monthly_pool_usdt", 0) or 0),
+    }
+    return users, pools
+
+
+def _require_admin(x_admin_key: Optional[str]):
+    """Light guard for admin/dev write endpoints. If ADMIN_API_KEY is set, it must match."""
+    expected = os.environ.get("ADMIN_API_KEY")
+    if expected and x_admin_key != expected:
+        raise HTTPException(status_code=403, detail="admin key required")
+
+
+@api_router.post("/reward/tree/build")
+async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
+    """Walk the REAL referral tree, compute every user's cumulative level+ROI+pool entitlement,
+    and auto-build the Merkle root + proofs. Owner/multisig posts the root on-chain; users claim
+    their own leaf. Persists the root + per-user breakdown & proofs for the admin dashboard."""
+    _require_admin(x_admin_key)
+    users, pools = await _load_network()
+    leaves, breakdown = tree_engine.compute(users, pools)
+    result = merkle.build(leaves)
+    snapshot = {
+        "root": result["root"],
+        "leaf_count": len(leaves),
+        "user_count": len(users),
+        "pools": pools,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.merkle_roots.insert_one({**snapshot})
+    await db.reward_snapshots.replace_one(
+        {"_id": "latest"},
+        {"_id": "latest", **snapshot, "breakdown": breakdown},
+        upsert=True,
+    )
+    # Store proofs per-user (avoids the 16MB single-doc limit at scale).
+    await db.reward_proofs.delete_many({})
+    grouped: dict = {}
+    for p in result["proofs"]:
+        grouped.setdefault(p["address"].lower(), []).append(p)
+    if grouped:
+        await db.reward_proofs.insert_many([
+            {"_id": addr, "root": result["root"], "proofs": pfs} for addr, pfs in grouped.items()
+        ])
+    return {**snapshot, "proofs": result["proofs"]}
+
+
+@api_router.get("/reward/tree/user/{address}")
+async def reward_tree_user(address: str):
+    """A user's reward breakdown + the Merkle proof(s) they need to claim on-chain."""
+    addr = address.lower()
+    snap = await db.reward_snapshots.find_one({"_id": "latest"})
+    if not snap:
+        raise HTTPException(status_code=404, detail="No reward snapshot yet. Run /reward/tree/build.")
+    bd = (snap.get("breakdown") or {}).get(addr)
+    if not bd:
+        raise HTTPException(status_code=404, detail="Address not in current reward tree")
+    pdoc = await db.reward_proofs.find_one({"_id": addr})
+    proofs = pdoc.get("proofs", []) if pdoc else []
+    return {"root": snap["root"], "breakdown": bd, "proofs": proofs}
+
+
+class SeedNode(BaseModel):
+    uid: str
+    sponsor_uid: Optional[str] = None
+    stake_usd: float = 0
+    active: bool = True
+    owner_tier: bool = False
+    days_active: int = 0
+
+
+@api_router.post("/reward/tree/seed-demo")
+async def reward_tree_seed_demo(x_admin_key: Optional[str] = Header(default=None)):
+    """Wipe demo_* users and seed a small multi-ID referral network to prove the tree walk."""
+    _require_admin(x_admin_key)
+    await db.users.delete_many({"uid": {"$regex": "^DEMO"}})
+    now = datetime.now(timezone.utc)
+    # root -> a,b (directs). a -> a1,a2,a3. b -> b1. a1 -> a1x (deep level for cascade).
+    net = [
+        ("DEMO_ROOT", None, 1000, True, True, 40),   # owner tier, staked $1000
+        ("DEMO_A", "DEMO_ROOT", 500, True, False, 30),
+        ("DEMO_B", "DEMO_ROOT", 300, True, False, 20),
+        ("DEMO_A1", "DEMO_A", 200, True, False, 10),
+        ("DEMO_A2", "DEMO_A", 100, True, False, 5),
+        ("DEMO_A3", "DEMO_A", 100, False, False, 0),  # inactive direct
+        ("DEMO_B1", "DEMO_B", 150, True, False, 8),
+        ("DEMO_A1X", "DEMO_A1", 100, True, False, 3),
+    ]
+    addr_of = {uid: "0x" + f"de{i:038x}" for i, (uid, *_ ) in enumerate(net)}
+    for uid, sp, stake, active, owner, days in net:
+        activated = (now - timedelta(days=days)).isoformat() if active else None
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "address": addr_of[uid],
+            "uid": uid,
+            "sponsor": addr_of[sp] if sp else None,
+            "total_deposited": stake,
+            "is_active": active,
+            "owner_tier": owner,
+            "activated_at": activated,
+            "created_at": now.isoformat(),
+            "last_seen": now.isoformat(),
+        })
+    return {"seeded": len(net), "addresses": addr_of}
 
 
 app.include_router(api_router)

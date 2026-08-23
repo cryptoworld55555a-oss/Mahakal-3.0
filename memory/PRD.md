@@ -166,3 +166,19 @@ On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permis
 - Full off-chain reward tree walk (build cumulative leaves from real referral tree data)
 - Frontend on-chain switch: real ethers claimMerkle/stake/sell wiring + fetch proof from /api/reward/merkle/build
 - Multi-ID testnet e2e (all ranks/pools/levels/300x/price-up)
+
+## [2026-06] Referral Tree Engine — DONE + tested (iter_12 all core pass)
+- /app/backend/tree_engine.py compute(): walks REAL sponsor tree from db.users; per user computes
+  self ROI (0.5%/day of cap, capped), level income (25% cascade up 15 uplines, gated by upline rank+active),
+  daily pool (active users), weekly pool (rank>=Silver), monthly pool (owner-tier); rank from active directs+active direct business.
+  Emits (address, cumulative_usd_wei, cap_reduce) leaves: reducing=level+monthly (capped at cap), non-reducing=roi+daily+weekly.
+- Endpoints: POST /api/reward/tree/build (walk->merkle root+proofs, persists breakdown + per-user proofs in db.reward_proofs),
+  GET /api/reward/tree/user/{address} (breakdown + claim proofs), POST /api/reward/tree/seed-demo (8-node demo net).
+  Both writes optionally gated by ADMIN_API_KEY header (env). 
+- Referral capture: /api/auth/verify accepts ref (uid or address) -> _resolve_sponsor stores sponsor; self-ref rejected. _public_user now returns sponsor.
+- Verified: 29/29 tree proofs verify against root; DEMO_ROOT level_income=56, lapsed=19.5, roi=600, cap=3000(owner); DEMO_A roi=150.
+- iter_12: all core pass; fixed minors (proofs->separate collection for 16MB scale; direct_business active-only; expose sponsor; dev-gate writes).
+### PENDING next:
+- Frontend on-chain switch: fetch proof from /api/reward/tree/user, call claimMerkle via ethers; stake/sell real calls
+- Admin: post latest root on-chain (setMerkleRoot) button/flow; owner-tier qualification via monthly_owner_qualified (binary legs)
+- Multi-ID real testnet e2e with staked wallets

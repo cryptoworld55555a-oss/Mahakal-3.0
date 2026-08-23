@@ -1,0 +1,42 @@
+{
+  "summary": "Backend-only regression + new Referral Tree Engine testing. Created /app/backend/tests/test_tree_engine_api.py (20 tests, single class to respect pytest.ini -n 2 --dist loadscope shared-DB ordering). Verified: seed-demo returns seeded=8 with correct sponsor edges/inactive flags persisted in db.users; tree/build returns valid 0x+64hex root, leaf_count==len(proofs), user_count>0, pools>=0, no _id leak; build is deterministic across repeated calls on unchanged data; /reward/merkle/latest matches the newest build root; DEMO_ROOT breakdown level_income=56, level_lapsed=19.5, self_roi=600, mining_cap=3000, rank=Active, active_directs=2, direct_business=800, cumulative_reducing<=cap; DEMO_A level_income=28, self_roi=150, mining_cap=1000, lapsed=3, active_directs=2 (inactive A3 excluded); inactive DEMO_A3 gets self_roi=0 and daily_pool=0; unknown address -> 404; checksum-cased address lookup works; ALL 29 proofs from build cryptographically verify via OZ sorted-pair hashing over keccak256(keccak256(abi.encode(address,uint256,bool))) and a tampered amount fails verification; proofs returned by /reward/tree/user verify against the snapshot root. Referral capture tested with REAL SIWE signatures (eth_account): ref by uid and ref by 0x address both persist the resolved sponsor, unknown ref leaves sponsor null, bad signature -> 401, self-referral guard returns None (verified via direct _resolve_sponsor call since the HTTP path early-returns for existing users). New sponsored zero-stake user appears in user_count without changing ROOT's level income. Full suite: 102/102 passed (includes iterations 10/11 reward_engine + merkle tests).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/reward/tree/seed-demo", "issue": "Unauthenticated public endpoint that WRITES 8 DEMO_* users into the live DB and deletes any uid matching ^DEMO. Should be admin-gated or disabled outside a dev flag."},
+      {"endpoint": "POST /api/reward/tree/build", "issue": "Unauthenticated. Anyone can trigger a full-network recompute + a merkle_roots insert (83 docs already accumulated in this env). Needs admin gating and/or rate limiting; consider skipping the insert when the root is unchanged."},
+      {"endpoint": "POST /api/reward/tree/build", "issue": "Scalability: reward_snapshots doc stores breakdown + ALL proofs in ONE document. Measured 51,492 bytes for 29 leaves (~1.7KB/leaf) -> hits MongoDB's 16MB doc limit at ~9k leaves (~4.5k users) and the build will start failing. Store proofs per-user in their own collection."},
+      {"endpoint": "tree_engine.compute", "issue": "Monthly pool eligibility uses the raw users.owner_tier flag instead of reward_engine.monthly_owner_qualified() (Diamond + binary legs). Owner-club qualification rules are therefore not enforced in the tree pass."},
+      {"endpoint": "tree_engine.compute", "issue": "Rank inputs mix criteria: active_directs counts only active children (correct) but direct_business_usd sums stake of ALL children including inactive ones (DEMO_A3 $100 counted), which can inflate rank/max_level."},
+      {"endpoint": "GET /api/user/{address} & /api/auth/verify", "issue": "_public_user never returns `sponsor`, so referral capture cannot be verified via any API. Test had to read db.users directly. Expose sponsor/upline in the user payload."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tree_engine_api.py",
+    "/app/test_reports/pytest/tree_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Gate /api/reward/tree/build and /api/reward/tree/seed-demo behind admin auth / dev-only flag.",
+    "Split reward_snapshots.proofs out of the single 'latest' document before the 16MB limit is hit (~4.5k users).",
+    "Use reward_engine.monthly_owner_qualified() for monthly-pool eligibility instead of the raw owner_tier flag.",
+    "Exclude inactive directs from direct_business_usd (or document the intent) so rank gating is consistent with active_directs.",
+    "Expose `sponsor` in _public_user so the referral edge is observable/testable via API.",
+    "server.py is 667 lines - split reward/tree routes into a router module before it crosses 700."
+  ],
+  "critical_code_review_comments": [
+    "tree_engine.compute(): self_roi = days_since(activated_at) * cap * 0.5% recomputes retroactively off the CURRENT cap, so a later stake top-up retroactively inflates all past ROI days. Snapshot per-day accrual or track cap history.",
+    "tree_engine.compute(): the upline walk is only bounded by lvl<=15, so a sponsor cycle (A->B->A) would double-credit level income up to 15 hops instead of being rejected. Add cycle detection at sponsor-assignment time.",
+    "Non-reducing bucket (self_roi + daily + weekly pool) is not capped at all; with live pool seed values ($303k daily) per-user daily_pool_usd is enormous. Confirm pool shares are intentionally uncapped.",
+    "db.merkle_roots grows one doc per build with no dedupe/TTL."
+  ],
+  "updated_files": ["/app/backend/tests/test_tree_engine_api.py"],
+  "success_rate": {"backend": "100% (102/102 pytest, 20/20 new tree-engine tests)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "POST /api/reward/tree/seed-demo (8 DEMO_* users, 0xde...00..07). 4 throwaway SIWE wallets created for ref tests and deleted in module teardown; DEMO_SELFREF probe user removed.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Wallet-only auth; tests generate ephemeral eth_account wallets and sign the SIWE message 'TITAN Sign-In\\nAddress: {addr}\\nChain ID: {id}\\nNonce: {nonce}' - real signature flow works end-to-end, no mocking needed.",
+  "context_for_next_testing_agent": "New regression file: /app/backend/tests/test_tree_engine_api.py. Keep all tree tests in ONE class - pytest.ini uses -n 2 --dist loadscope and the tests share DB state (build determinism breaks if another worker writes users concurrently). Pool USD values come from live db.protocol_stats (currently daily=303306.5, weekly=308856.5, monthly=321506.5) and are asserted only as >=0. Referral sponsor is not exposed by any API, so sponsor assertions read db.users via pymongo. Self-referral guard is unit-tested through server._resolve_sponsor (both awaits must share one asyncio.run - motor binds to the first event loop).",
+  "rca_of_the_issue": "No product defects reproduced. Only test-harness fix needed: the first version of test_16 called asyncio.run() twice against the module-level motor client, raising 'Event loop is closed'; fixed by awaiting both _resolve_sponsor calls inside a single coroutine."
+}
