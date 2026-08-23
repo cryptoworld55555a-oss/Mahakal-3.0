@@ -91,8 +91,8 @@ class TestSimulate:
         assert abs(sum(x["amount_usd"] for x in d["level_income"]) - 25.0) < 1e-6
 
     def test_owner_diamond(self, client):
-        d = sim(client, stake_usd=100, owner_tier=True, active_directs=10,
-                direct_business_usd=2000, downline_stake_usd=100).json()
+        d = sim(client, stake_usd=100, owner_tier=True, active_directs=15,
+                direct_business_usd=5000, downline_stake_usd=100).json()
         assert d["rank"] == "Diamond"
         assert d["mining_cap_usd"] == 300
         assert d["self_daily_roi_usd"] == 1.5
@@ -103,12 +103,14 @@ class TestSimulate:
     def test_rank_ladder(self, client):
         cases = [
             (0, 0, "Active", 1),
-            (4, 999, "Active", 1),
-            (5, 0, "Star", 3),
+            (2, 999, "Active", 1),
+            (5, 0, "Active", 1),
+            (3, 500, "Star", 3),
             (5, 999, "Star", 3),
             (5, 1000, "Silver", 6),
             (9, 5000, "Silver", 6),
-            (10, 2000, "Diamond", 15),
+            (10, 2000, "Gold", 9),
+            (15, 5000, "Diamond", 15),
         ]
         for directs, biz, rank, maxlv in cases:
             d = sim(client, active_directs=directs, direct_business_usd=biz,
@@ -162,7 +164,7 @@ class TestSimulate:
 # ---------- POST /api/reward/monthly-qualify ----------
 class TestMonthlyQualify:
     def test_qualified(self, client):
-        r = qual(client, active_directs=10, direct_business_usd=2000, left_ids=25,
+        r = qual(client, active_directs=15, direct_business_usd=5000, left_ids=25,
                  right_ids=25, left_carry_usd=5000, right_carry_usd=5000)
         assert r.status_code == 200, r.text
         d = r.json()
@@ -185,7 +187,7 @@ class TestMonthlyQualify:
             (26, 30, 6000, 5000, True),
         ]
         for li, ri, lc, rc, exp in cases:
-            d = qual(client, active_directs=10, direct_business_usd=2000, left_ids=li,
+            d = qual(client, active_directs=15, direct_business_usd=5000, left_ids=li,
                      right_ids=ri, left_carry_usd=lc, right_carry_usd=rc).json()
             assert d["owner_club_qualified"] is exp, f"{(li, ri, lc, rc)} -> {d}"
 

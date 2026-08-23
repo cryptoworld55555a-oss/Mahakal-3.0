@@ -16,6 +16,9 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 
 import reward_engine as rw
+import merkle
+import re as _re
+from pydantic import field_validator
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -471,6 +474,53 @@ async def reward_config():
         "owner_cap_pct": rw.OWNER_CAP_BPS / 100.0,
         "ranks": rw.RANKS,
     }
+
+
+class MerkleLeaf(BaseModel):
+    address: str
+    cumulative_usd: float = Field(ge=0)   # total lifetime USD entitlement
+    cap_reduce: bool = True               # True=direct/level/monthly, False=daily/weekly
+
+    @field_validator("address")
+    @classmethod
+    def _valid_address(cls, v: str) -> str:
+        if not _re.fullmatch(r"0x[0-9a-fA-F]{40}", v or ""):
+            raise ValueError("invalid EVM address")
+        return v
+
+
+class MerkleBuildRequest(BaseModel):
+    leaves: list[MerkleLeaf]
+
+
+@api_router.post("/reward/merkle/build")
+async def reward_merkle_build(req: MerkleBuildRequest):
+    """Backend-as-calculator: turn per-user cumulative USD rewards into a Merkle root + proofs.
+    Owner/multisig posts `root` on-chain via TitanProtocol.setMerkleRoot; each user claims their
+    own leaf with `proof` via claimMerkle. Backend holds NO key that can move funds.
+    USD is scaled to 18-decimal wei to match the on-chain leaf encoding (address,uint256,bool)."""
+    seen = set()
+    for l in req.leaves:
+        key = (l.address.lower(), l.cap_reduce)
+        if key in seen:
+            raise HTTPException(status_code=422, detail=f"duplicate (address,cap_reduce) leaf: {l.address}")
+        seen.add(key)
+    values = [(l.address, int(round(l.cumulative_usd * 1e18)), l.cap_reduce) for l in req.leaves]
+    result = merkle.build(values)
+    await db.merkle_roots.insert_one({
+        "root": result["root"],
+        "leaf_count": len(values),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return result
+
+
+@api_router.get("/reward/merkle/latest")
+async def reward_merkle_latest():
+    doc = await db.merkle_roots.find_one(sort=[("created_at", -1)])
+    if not doc:
+        return {"root": None, "leaf_count": 0}
+    return {"root": doc["root"], "leaf_count": doc.get("leaf_count", 0), "created_at": doc.get("created_at")}
 
 
 app.include_router(api_router)

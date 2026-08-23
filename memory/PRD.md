@@ -149,3 +149,20 @@ On-chain verified (verify-sell.js): liquidity add, stake $100 -> cap 200, permis
 - Merkle authorization contract + root publish + on-chain claim(proof) [large]
 - Frontend on-chain switch: real ethers calls for activate/stake/claim/sell wired to latest testnet protocol 0xf8eaf47A1Ee1a2f60f817743fCD72D33665ed537
 - Multi-ID testnet e2e: each rank, daily/weekly/monthly pools, all level records, Owner 300x, claim price-up effect, self ROI on-chain
+
+## [2026-06] Merkle Reward Claim — DONE + testnet-verified
+- CONTRACT (TitanProtocol.sol): added setMerkleRoot(root) [owner/multisig] + claimMerkle(cumulativeUsd, capReduce, minTtnOut, deadline, proof). Cumulative pattern (pays delta only, no replay). Verifies OZ StandardMerkleTree proof (leaf = keccak256(keccak256(abi.encode(user,uint256,bool)))). Buys TTN LIVE from PancakeSwap at claim-time price -> sends to user. capReduce bucket reduces mining cap; daily/weekly bucket does not. Blocked/paused users cannot claim. Enabled viaIR in hardhat.config.
+- Backend = CALCULATOR ONLY (no fund-moving key): /app/backend/merkle.py (Python port of @openzeppelin/merkle-tree, verified BYTE-IDENTICAL to JS). Endpoints: POST /api/reward/merkle/build (root+proofs, dedupe (addr,capReduce), address regex validation), GET /api/reward/merkle/latest (persisted in db.merkle_roots).
+- Hardhat tests: 12 passing (3 new Merkle: live-price claim, cumulative delta + forged proof revert, blocked user).
+- REAL BSC TESTNET proof (scripts/merkle-testnet.js): deploy+liquidity(1 TTN=$10)+reserve+register+stake($100,cap 200)+setMerkleRoot+claimMerkle -> receipt status 1, cap 200->180, claimedReducingUsd=20, user received ~1.968 TTN for $20 at live price. Verified via scripts/verify-merkle.js.
+- testing_agent iter_11: fixed HIGH (bad address -> 422) + duplicate-pair guard. All pass.
+### NEW TESTNET ADDRESSES (frontend config.js ONCHAIN + .env updated):
+- TOKEN=0x6cA29Dc3691F6a3B5bd0a7f7a2fCeD8F0BF15ffE
+- PROTOCOL=0x98600401aadDb432cAf9698170725900829a4488
+- SECURITY=0x130D992Dff0e12c7527A574E51501681767e6093
+- COMMUNITY=0x67d0ebDd9CE07722045C32ACf3e624A5FfDBAA8F
+- USDT=0xe7FC10358aa09eb969054E5a8e112Cf4770BDE0E
+### PENDING next:
+- Full off-chain reward tree walk (build cumulative leaves from real referral tree data)
+- Frontend on-chain switch: real ethers claimMerkle/stake/sell wiring + fetch proof from /api/reward/merkle/build
+- Multi-ID testnet e2e (all ranks/pools/levels/300x/price-up)

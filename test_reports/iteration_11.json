@@ -1,0 +1,37 @@
+{
+  "summary": "Backend-only run. Created /app/backend/tests/test_merkle_api.py (18 new tests) covering POST /api/reward/merkle/build (multi-leaf root+proof contract, determinism x3, order-independence, single-leaf empty proof, negative amount 422, empty leaves, default cap_reduce, duplicate address, 1e9 USD scaling, 50 leaves), GET /api/reward/merkle/latest, plus re-verification of the reward-engine defect fixes (Gold reachable at 10 directs/$2000 with L7-9 unlocked & L10 locked, Diamond at 15/$5000 with all 15 levels, negative inputs -> 422, full rank ladder boundaries) and monthly-qualify/config smoke. Also updated stale expectations in the pre-existing test_reward_engine.py (they still asserted the OLD flat Gold==Diamond thresholds). Full suite: 82 tests, 81 pass, 1 fail. Root correctness cross-checked locally: single-leaf root == merkle.leaf_hash(addr, amount, capReduce).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/reward/merkle/build", "issue": "No address validation on MerkleLeaf.address. Any non-hex string (e.g. 'notanaddress') raises ValueError in eth_utils.to_checksum_address -> 500 Internal Server Error (traceback in backend.err.log). Should be a 422 via a Pydantic validator/regex ^0x[0-9a-fA-F]{40}$.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/reward/merkle/build", "issue": "Duplicate addresses in the same batch are accepted and produce two distinct leaves (both provable against the same root). With a cumulative-claim contract the larger leaf simply wins, but the batch should reject/dedupe addresses to avoid ambiguous authorization."},
+      {"endpoint": "POST /api/reward/merkle/build", "issue": "cumulative_usd is a float; int(round(usd*1e18)) loses precision above ~1e5 USD with fractional cents (IEEE754). Root/proofs stay self-consistent, but the on-chain wei amount may differ from the ledger value. Consider accepting a decimal/string amount."},
+      {"endpoint": "GET /api/reward/merkle/latest", "issue": "Returns only root/leaf_count/created_at; proofs are returned exactly once at build time and never persisted, so a user cannot re-fetch their proof for a published root. No GET /reward/merkle/proof/{address} exists."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_merkle_api.py",
+    "/app/backend/tests/test_reward_engine.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add address format validation (Pydantic field_validator / regex) to MerkleLeaf so invalid addresses return 422 instead of 500",
+    "Reject or dedupe duplicate addresses within a single merkle build batch",
+    "Persist per-address proofs (or expose a proof lookup endpoint) so users can claim after the root is published",
+    "Consider decimal/string USD input to avoid float->wei precision loss for large amounts"
+  ],
+  "critical_code_review_comments": [
+    "merkle.build: verified deterministic (sorted leaf hashes, commutative pair hashing) and order-independent; proof depths for 50 leaves are 1..8 as expected.",
+    "/api/reward/merkle/build has no input validation on address and no size cap on `leaves` — a very large payload will build a tree synchronously on the event loop (CPU-bound keccak) and block the server.",
+    "reward_engine RANKS ladder fix confirmed: Active/Star(3,500)/Silver(5,1000)/Gold(10,2000)/Diamond(15,5000) — every tier now reachable; monthly_owner_qualified correctly requires Diamond."
+  ],
+  "updated_files": ["/app/backend/tests/test_merkle_api.py", "/app/backend/tests/test_reward_engine.py"],
+  "success_rate": {"backend": "98% (81/82)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Several merkle_roots documents inserted in MongoDB by the build endpoint during tests (endpoint has no delete API; harmless append-only audit rows).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest /app/backend/tests/ -o addopts='' ` SERIALLY — the xdist parallel default causes a false failure in TestMerkleLatest because concurrent workers insert newer roots. All requested features (root format, determinism, single-leaf empty proof, negative 422, latest, Gold/Diamond rank fixes) PASS. Only open defect: invalid address -> 500 on /api/reward/merkle/build.",
+  "rca_of_the_issue": "MerkleBuildRequest.MerkleLeaf.address is typed `str` with no validator, so the raw value reaches merkle.leaf_hash -> eth_utils.to_checksum_address, which raises ValueError('when sending a str, it must be a hex string') and FastAPI converts the unhandled exception into 500. Fix: validate with regex ^0x[0-9a-fA-F]{40}$ in the Pydantic model (or wrap build in try/except -> HTTPException 422)."
+}

@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 interface IPancakeRouter {
     function swapExactTokensForTokens(
@@ -76,6 +77,16 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     mapping(address => uint256) public lastStakeDay;
     mapping(uint256 => bool) public usedNonce;
 
+    // -------------------------------------------------- Merkle reward claims
+    // Backend ONLY computes rewards off-chain and publishes a Merkle root. It holds NO
+    // signing key that can move funds — a user claims their own leaf with a proof.
+    // Cumulative pattern: each leaf = total lifetime USD entitlement; contract pays the
+    // delta since last claim, so re-publishing roots is safe (no replay, no per-epoch nonce).
+    bytes32 public merkleRoot;
+    uint256 public rewardEpoch;
+    mapping(address => uint256) public claimedReducingUsd;     // cap-reducing rewards (direct/level/monthly)
+    mapping(address => uint256) public claimedNonReducingUsd;  // non-reducing (daily/weekly self-ROI)
+
     uint256 public totalRegistered;
     uint256 public totalActivated; // users who have staked at least once
 
@@ -90,6 +101,8 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     event RouterUpdated(address router);
     event SignerUpdated(address signer);
     event OwnerTierSet(address indexed user, bool ownerTier);
+    event MerkleRootUpdated(bytes32 indexed root, uint256 indexed epoch);
+    event MerkleClaimed(address indexed user, uint256 usdtValue, uint256 ttnOut, bool capReduce, uint256 cumulativeUsd);
 
     constructor(
         address _usdt,
@@ -149,6 +162,15 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     function setOwnerTier(address user, bool ownerTier) external onlyOwner {
         accounts[user].ownerTier = ownerTier;
         emit OwnerTierSet(user, ownerTier);
+    }
+
+    /// @notice Publish the reward Merkle root computed off-chain by the backend engine.
+    /// @dev Backend has NO power to move funds — it only posts a root of user->cumulativeUsd leaves.
+    ///      Owner/multisig posts the root; users then claim their own delta with a proof.
+    function setMerkleRoot(bytes32 root) external onlyOwner {
+        merkleRoot = root;
+        rewardEpoch += 1;
+        emit MerkleRootUpdated(root, rewardEpoch);
     }
 
     // -------------------------------------------------------- Register / Renew
@@ -264,6 +286,56 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         ttn.safeTransfer(msg.sender, bought);
 
         emit RewardClaimed(msg.sender, usdtValue, capReduce, nonce);
+    }
+
+    // ------------------------------------------------ Merkle reward claim (backend = calculator only)
+    /// @notice Claim off-chain-computed rewards authorized by a Merkle root (no backend signing key).
+    /// @dev Paid as TTN bought LIVE from PancakeSwap with the claimable USD value at the CURRENT
+    ///      market price at claim time — so the user always gets TTN at today's live rate.
+    /// @param cumulativeUsd Your TOTAL lifetime USD entitlement of this type (from the published leaf).
+    /// @param capReduce true = cap-reducing bucket (direct/level/monthly); false = daily/weekly self-ROI.
+    /// @param minTtnOut Slippage guard for the live buy.
+    /// @param proof Merkle proof for leaf keccak256(bytes.concat(keccak256(abi.encode(user, cumulativeUsd, capReduce)))).
+    function claimMerkle(
+        uint256 cumulativeUsd,
+        bool capReduce,
+        uint256 minTtnOut,
+        uint256 deadline,
+        bytes32[] calldata proof
+    ) external nonReentrant {
+        security.whenActive(msg.sender);
+        require(block.timestamp <= deadline, "expired");
+        require(merkleRoot != bytes32(0), "no root");
+        require(address(router) != address(0), "router unset");
+
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, cumulativeUsd, capReduce))));
+        require(MerkleProof.verify(proof, merkleRoot, leaf), "bad proof");
+
+        // Cumulative accounting: pay only the unclaimed delta.
+        uint256 alreadyClaimed = capReduce ? claimedReducingUsd[msg.sender] : claimedNonReducingUsd[msg.sender];
+        require(cumulativeUsd > alreadyClaimed, "nothing to claim");
+        uint256 claimable = cumulativeUsd - alreadyClaimed;
+
+        if (capReduce) {
+            Account storage a = accounts[msg.sender];
+            require(a.miningCap >= claimable, "no mining cap"); // no cap = no reward
+            a.miningCap -= claimable;
+            claimedReducingUsd[msg.sender] = cumulativeUsd;
+        } else {
+            claimedNonReducingUsd[msg.sender] = cumulativeUsd;
+        }
+
+        // Buy TTN live from PancakeSwap with the claimable USD value at the CURRENT price.
+        address[] memory path = new address[](2);
+        path[0] = address(usdt);
+        path[1] = address(ttn);
+        usdt.forceApprove(address(router), claimable);
+        uint256 ttnBefore = ttn.balanceOf(address(this));
+        router.swapExactTokensForTokens(claimable, minTtnOut, path, address(this), deadline);
+        uint256 bought = ttn.balanceOf(address(this)) - ttnBefore;
+        ttn.safeTransfer(msg.sender, bought);
+
+        emit MerkleClaimed(msg.sender, claimable, bought, capReduce, cumulativeUsd);
     }
 
     // ------------------------------------------------ Backend-signed TTN sell

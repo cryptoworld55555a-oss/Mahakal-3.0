@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { StandardMerkleTree } = require("@openzeppelin/merkle-tree");
 
 const E = (n) => ethers.parseEther(String(n));
 
@@ -155,5 +156,77 @@ describe("TITAN Protocol + Security", function () {
     await expect(protocol.connect(user).stake(E(5), 0, ethers.MaxUint256)).to.be.revertedWith("below min");
     await expect(protocol.connect(user).stake(E(15), 0, ethers.MaxUint256)).to.be.revertedWith("not multiple of step");
     await expect(protocol.connect(user).stake(E(2000), 0, ethers.MaxUint256)).to.be.revertedWith("above daily max");
+  });
+
+  it("Merkle claim: user claims own leaf (no backend sig), gets TTN at live price, cap reduces", async () => {
+    await protocol.connect(user).register();
+    await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256); // cap $200
+    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
+
+    // Backend computes rewards off-chain and builds a Merkle tree. It signs NOTHING.
+    // Leaf = [user, cumulativeUsd, capReduce]. dev is a filler leaf.
+    const values = [
+      [user.address, E(20).toString(), true],   // cap-reducing (level/direct/monthly)
+      [user.address, E(8).toString(), false],   // non-reducing (daily/weekly)
+      [dev.address, E(3).toString(), true],
+    ];
+    const tree = StandardMerkleTree.of(values, ["address", "uint256", "bool"]);
+    await protocol.setMerkleRoot(tree.root); // owner/multisig posts root
+    expect(await protocol.rewardEpoch()).to.equal(1n);
+
+    const proofReduce = tree.getProof([user.address, E(20).toString(), true]);
+    const proofNon = tree.getProof([user.address, E(8).toString(), false]);
+
+    const ttnBefore = await ttn.balanceOf(user.address);
+    await protocol.connect(user).claimMerkle(E(20), true, 0, deadline, proofReduce);
+    expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(20)); // 1:1 mock (live price)
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(180)); // 200 - 20 cap reduced
+
+    // non-reducing daily/weekly does NOT touch cap
+    await protocol.connect(user).claimMerkle(E(8), false, 0, deadline, proofNon);
+    expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(28));
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(180)); // unchanged
+  });
+
+  it("Merkle claim: cumulative pays only delta; re-claim same amount reverts; forged proof reverts", async () => {
+    await protocol.connect(user).register();
+    await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256);
+    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
+
+    // Epoch 1: cumulative $10
+    let tree = StandardMerkleTree.of([[user.address, E(10).toString(), true]], ["address", "uint256", "bool"]);
+    await protocol.setMerkleRoot(tree.root);
+    await protocol.connect(user).claimMerkle(E(10), true, 0, deadline, tree.getProof([user.address, E(10).toString(), true]));
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(190));
+
+    // re-claim same cumulative -> nothing new
+    await expect(
+      protocol.connect(user).claimMerkle(E(10), true, 0, deadline, tree.getProof([user.address, E(10).toString(), true]))
+    ).to.be.revertedWith("nothing to claim");
+
+    // Epoch 2: cumulative grows to $25 -> pays only delta $15
+    tree = StandardMerkleTree.of([[user.address, E(25).toString(), true]], ["address", "uint256", "bool"]);
+    await protocol.setMerkleRoot(tree.root);
+    const ttnBefore = await ttn.balanceOf(user.address);
+    await protocol.connect(user).claimMerkle(E(25), true, 0, deadline, tree.getProof([user.address, E(25).toString(), true]));
+    expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(15)); // delta only
+    expect((await protocol.accountOf(user.address))[3]).to.equal(E(175)); // 190 - 15
+
+    // forged amount (not in tree) -> bad proof
+    await expect(
+      protocol.connect(user).claimMerkle(E(999), true, 0, deadline, tree.getProof([user.address, E(25).toString(), true]))
+    ).to.be.revertedWith("bad proof");
+  });
+
+  it("Merkle claim: blocked user cannot claim", async () => {
+    await protocol.connect(user).register();
+    await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256);
+    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
+    const tree = StandardMerkleTree.of([[user.address, E(10).toString(), true]], ["address", "uint256", "bool"]);
+    await protocol.setMerkleRoot(tree.root);
+    await security.connect(admin).blockUser(user.address);
+    await expect(
+      protocol.connect(user).claimMerkle(E(10), true, 0, deadline, tree.getProof([user.address, E(10).toString(), true]))
+    ).to.be.revertedWith("user blocked");
   });
 });
