@@ -245,49 +245,6 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         emit Staked(msg.sender, amount, reserveAmt, devCut, capGranted);
     }
 
-    // ------------------------------------------------ Backend-signed reward claim
-    /// @notice Claim an off-chain-computed reward (direct/level/daily/weekly/monthly). Paid as TTN
-    ///         bought live from PancakeSwap with the USD reward value and sent to the user's wallet.
-    /// @param usdtValue USD value of the reward (18 decimals). @param minTtnOut slippage guard.
-    /// @param capReduce true for rewards that reduce mining cap (direct/level/monthly); false for daily/weekly.
-    function claimReward(
-        uint256 usdtValue,
-        bool capReduce,
-        uint256 minTtnOut,
-        uint256 nonce,
-        uint256 deadline,
-        bytes calldata signature
-    ) external nonReentrant {
-        security.whenActive(msg.sender);
-        require(block.timestamp <= deadline, "expired");
-        require(!usedNonce[nonce], "nonce used");
-        require(address(router) != address(0), "router unset");
-
-        bytes32 digest = keccak256(
-            abi.encodePacked("CLAIM", msg.sender, usdtValue, capReduce, nonce, deadline, address(this), block.chainid)
-        );
-        require(MessageHashUtils.toEthSignedMessageHash(digest).recover(signature) == signer, "bad sig");
-        usedNonce[nonce] = true;
-
-        if (capReduce) {
-            Account storage a = accounts[msg.sender];
-            require(a.miningCap >= usdtValue, "no mining cap"); // no cap = no reward
-            a.miningCap -= usdtValue;
-        }
-
-        // Buy TTN live from PancakeSwap with the USD reward value; receive to protocol, then send to user.
-        address[] memory path = new address[](2);
-        path[0] = address(usdt);
-        path[1] = address(ttn);
-        usdt.forceApprove(address(router), usdtValue);
-        uint256 ttnBefore = ttn.balanceOf(address(this));
-        router.swapExactTokensForTokens(usdtValue, minTtnOut, path, address(this), deadline);
-        uint256 bought = ttn.balanceOf(address(this)) - ttnBefore;
-        ttn.safeTransfer(msg.sender, bought);
-
-        emit RewardClaimed(msg.sender, usdtValue, capReduce, nonce);
-    }
-
     // ------------------------------------------------ Merkle reward claim (backend = calculator only)
     /// @notice Claim off-chain-computed rewards authorized by a Merkle root (no backend signing key).
     /// @dev Paid as TTN bought LIVE from PancakeSwap with the claimable USD value at the CURRENT
@@ -336,46 +293,6 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         ttn.safeTransfer(msg.sender, bought);
 
         emit MerkleClaimed(msg.sender, claimable, bought, capReduce, cumulativeUsd);
-    }
-
-    // ------------------------------------------------ Backend-signed TTN sell
-    /// @notice Sell mined TTN. Backend signs the amount of the user's mined TTN allowed to sell.
-    /// @dev Swaps TTN (held in this contract) to USDT to the user; reduces mining cap by USD received.
-    function sellMined(
-        uint256 ttnIn,
-        uint256 minUsdtOut,
-        uint256 nonce,
-        uint256 deadline,
-        bytes calldata signature
-    ) external nonReentrant {
-        security.whenActive(msg.sender);
-        require(block.timestamp <= deadline, "expired");
-        require(!usedNonce[nonce], "nonce used");
-        require(address(router) != address(0), "router unset");
-
-        bytes32 digest = keccak256(
-            abi.encodePacked("SELL", msg.sender, ttnIn, minUsdtOut, nonce, deadline, address(this), block.chainid)
-        );
-        require(MessageHashUtils.toEthSignedMessageHash(digest).recover(signature) == signer, "bad sig");
-        usedNonce[nonce] = true;
-
-        // Pull the user's mined TTN into the protocol, then sell it on PancakeSwap for USDT.
-        ttn.safeTransferFrom(msg.sender, address(this), ttnIn);
-        address[] memory path = new address[](2);
-        path[0] = address(ttn);
-        path[1] = address(usdt);
-        ttn.forceApprove(address(router), ttnIn);
-
-        uint256 balBefore = usdt.balanceOf(address(this));
-        router.swapExactTokensForTokens(ttnIn, minUsdtOut, path, address(this), deadline);
-        uint256 usdtOut = usdt.balanceOf(address(this)) - balBefore;
-
-        Account storage a = accounts[msg.sender];
-        require(a.miningCap >= usdtOut, "exceeds mining cap"); // can only extract up to available cap
-        a.miningCap -= usdtOut;
-
-        usdt.safeTransfer(msg.sender, usdtOut);
-        emit Sold(msg.sender, ttnIn, usdtOut, nonce);
     }
 
     // ------------------------------------------------ Permissionless sell (site-independent)

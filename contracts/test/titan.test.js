@@ -84,47 +84,18 @@ describe("TITAN Protocol + Security", function () {
     await expect(protocol.connect(user).stake(E(100), 0, ethers.MaxUint256)).to.be.revertedWith("system paused");
   });
 
-  it("signed reward claim pays USDT and reduces cap; nonce cannot be reused", async () => {
+  it("permissionless sell reduces cap by actual USDT received (cap only reduces on sell)", async () => {
     await protocol.connect(user).register();
     await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256); // cap $200
-    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
-    const addr = await protocol.getAddress();
-    const sig = await signClaim(backend, "CLAIM", user.address, E(20), true, 1, deadline, addr, chainId);
-
-    const ttnBefore = await ttn.balanceOf(user.address);
-    await protocol.connect(user).claimReward(E(20), true, 0, 1, deadline, sig);
-    expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(20)); // reward delivered as TTN (1:1 mock)
-    const acc = await protocol.accountOf(user.address);
-    expect(acc[3]).to.equal(E(180)); // 200 - 20 (capReduce)
-
-    // reuse -> revert
-    await expect(protocol.connect(user).claimReward(E(20), true, 0, 1, deadline, sig)).to.be.revertedWith("nonce used");
-  });
-
-  it("claim with capReduce fails when cap insufficient (no cap = no reward)", async () => {
-    await protocol.connect(user).register();
-    // no stake -> cap 0
-    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
-    const addr = await protocol.getAddress();
-    const sig = await signClaim(backend, "CLAIM", user.address, E(5), true, 7, deadline, addr, chainId);
-    await expect(protocol.connect(user).claimReward(E(5), true, 0, 7, deadline, sig)).to.be.revertedWith("no mining cap");
-  });
-
-  it("sellMined swaps TTN->USDT and reduces cap by USD received", async () => {
-    await protocol.connect(user).register();
-    await protocol.connect(user).stake(E(100), 0, ethers.MaxUint256); // cap $200, 60 TTN reserve in protocol
-    // user must hold TTN and approve protocol to sell their mined TTN
-    await ttn.transfer(user.address, E(50));
+    await ttn.transfer(user.address, E(50)); // owner (whitelisted) gives user some TTN
     await ttn.connect(user).approve(await protocol.getAddress(), ethers.MaxUint256);
     const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
-    const addr = await protocol.getAddress();
-    const sig = await signClaim(backend, "SELL", user.address, E(30), E(1), 2, deadline, addr, chainId);
-
     const balBefore = await usdt.balanceOf(user.address);
-    await protocol.connect(user).sellMined(E(30), E(1), 2, deadline, sig);
-    expect(await usdt.balanceOf(user.address)).to.equal(balBefore + E(30)); // 1:1
+    await protocol.connect(user).sell(E(30), E(1), deadline);
+    const usdtGot = (await usdt.balanceOf(user.address)) - balBefore;
+    expect(usdtGot).to.be.gt(0);
     const acc = await protocol.accountOf(user.address);
-    expect(acc[3]).to.equal(E(170)); // 200 - 30
+    expect(acc[3]).to.equal(E(200) - usdtGot); // cap reduced by exactly the USDT received
   });
 
   it("TTN transfers restricted: user cannot send to random wallet, only to protocol", async () => {

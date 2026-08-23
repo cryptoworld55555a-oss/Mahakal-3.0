@@ -220,3 +220,11 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - REAL TESTNET e2e (full-e2e.js) verified: 2 claims cap 200->200 UNCHANGED + price UP; sell 3 TTN -> cap 200->169.65 (actual USDT) + price DOWN.
 - NEW deployment (has liquidity+reserve): PROTOCOL 0x53F278bfCa7acED4c41734FF78840d52fdFD1a6f, TTN 0xd3123574F7C204c73c982972ea46b1086Bbe1079, USDT 0x2e64bc6A..., SECURITY 0x314DCAb3..., COMMUNITY 0x073DB912... (config.js + .env updated).
 - CLEANUP-before-mainnet: legacy signature claimReward() still reduces cap (unused by frontend/engine) - remove during audit prep.
+
+## [2026-06] Go-live WITHOUT paid audit (user decision) + FREE Slither hardening
+- User has NO audit budget -> launching without professional audit, will audit later. Risk acknowledged (unaudited DeFi = real risk; no hack-proof guarantee).
+- Ran Slither 0.11.6 (free static analyzer). Removed dead legacy functions claimReward() + sellMined() (signer-gated, unused) -> smaller attack surface. Fixed CommunityFund.totalAllocated init.
+- Result: our contracts High 3->1, Medium 7->5. Remaining are NON-exploitable: reentrancy-balance/no-eth are all guarded by nonReentrant (false positives); unused-return is the intentional balBefore/balAfter swap pattern (safe).
+- Local tests 10/10 pass after cleanup (added clean sell-reduces-cap test).
+- Current testnet deploy (0x53F27...) still has legacy funcs (harmless, signer-gated); cleaned source deploys fresh at mainnet.
+### FREE safety plan for launch: small initial liquidity (limit exposure), keep SecurityAdmin pause + block active, admin multisig, heavy testnet coverage, run Slither each change; proper audit when funds allow.

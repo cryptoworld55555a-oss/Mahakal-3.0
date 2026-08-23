@@ -12,7 +12,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract CommunityFund is ReentrancyGuard, Pausable, Ownable {
     uint256 public totalReceived;
-    uint256 public totalAllocated;
+    uint256 public totalAllocated = 0;
     address public protocol;
 
     event FundReceived(uint256 amount);
