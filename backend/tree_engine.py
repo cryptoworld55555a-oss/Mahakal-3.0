@@ -3,11 +3,13 @@
 Walks the REAL referral network (sponsor edges) and the BINARY tree (sponsor-chosen
 left/right placement) and computes each user's cumulative USD entitlement, then emits
 Merkle leaves consumed by merkle.build():
-  - Self ROI      : 0.5%/day of mining cap, capped at cap                     -> non-reducing bucket
-  - Level income  : 25% cascade up 15 uplines, gated by each upline's rank    -> cap-reducing bucket
+  - Self ROI      : 0.5%/day of mining cap, capped at cap                     -> CAP-REDUCING bucket
+  - Level income  : 25% cascade up 15 uplines, gated by each upline's rank    -> CAP-REDUCING bucket
+  - Monthly pool  : shared EQUALLY among monthly-QUALIFIED achievers          -> CAP-REDUCING bucket
   - Daily pool    : shared among active users                                 -> non-reducing bucket
   - Weekly pool   : shared among rank >= Silver                               -> non-reducing bucket
-  - Monthly pool  : shared EQUALLY among monthly-QUALIFIED achievers          -> cap-reducing bucket
+
+Cap RULE: mining cap is reduced by EVERYTHING except the daily pool and weekly pool.
 
 Binary is used ONLY for qualification (no matching income). Monthly qualification =
 active + own stake >= $50 + 10 active directs (>= $50 each) + $2000 direct business +
@@ -156,8 +158,9 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
         d_share = daily_share if a in active_set else 0
         w_share = weekly_share if a in silver_plus else 0
 
-        reducing = min(level_income[a] + m_share, caps[a])   # never exceed mining cap
-        non_reducing = self_roi[a] + d_share + w_share
+        # Cap-reducing = self ROI + level income + monthly pool (everything except daily & weekly pools)
+        reducing = min(self_roi[a] + level_income[a] + m_share, caps[a])   # never exceed mining cap
+        non_reducing = d_share + w_share
 
         breakdown[a] = {
             "address": a,
