@@ -100,3 +100,15 @@ NOT yet done on testnet: full stake (60% buy TTN) + claim + sell — need TTN/US
 - scripts/full-flow.js verified on-chain: stake $100 -> 60% bought ~6 TTN via Pancake (protocol reserve), 5% dev, 35% USDT reserve, miningCap 200. claimReward $10 (signed, capReduce) -> USDT reserve 35->25, cap 200->190. sellMined 2 TTN (signed) -> TTN reserve 6->3.95, cap 190->169.84 (reduced by USD received). Final state (scripts/state.js): totalStaked 100, miningCap 169.84, TTN reserve 3.95, USDT reserve 25 — all reconcile.
 - Signer = deployer (testnet). EIP-191 packed sigs. Scripts: deploy/check/onchain-test/add-liquidity/full-flow/state/verify.js.
 - REMAINING: backend signer service (level/matching/pool calc + real signatures), admin panel UI (search-block + pause + per-user cap/value), frontend on-chain switch (demo->real). Then audit -> mainnet (real USDT 0x55d398..., real router 0x10ED43...).
+
+## CLAIM UPDATED to deliver TTN + REDEPLOYED — 2026-06
+claimReward now BUYS TTN live from PancakeSwap with the USD reward value and sends TTN to user wallet (was USDT). New param minTtnOut (slippage). Signature unchanged (usdtValue, capReduce, nonce, deadline). Applies to ALL rewards (level/daily/weekly/monthly) per user confirmation. Local Hardhat: 7/7 pass.
+NEW BSC Testnet deployment (chainId 97, replaces earlier):
+- TitanToken (TTN): 0x804b9997972b870c19778e6796DAc35440899355
+- TitanProtocol: 0x32fb34Ea6720866c67DFB7a34Fb03d559B14A46c
+- TitanSecurityAdmin: 0x35B40DBB9822E771a0C99b00a085F822f67D1Af0
+- CommunityFund: 0x375b6321D040d06a05e699F3Fd1b42Eef9947cCb
+- MockUSDT: 0x6Ef85C5ebd147E262c5E64b28F24A55333B85690
+- Router (testnet): 0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+Liquidity re-added (1000 TTN + 10000 USDT). Verified on-chain: stake $100 -> cap 200; claim $10 -> cap 190, protocol USDT 35->25 (spent buying TTN), TTN bought sent to user, claim tx SUCCESS. Mechanism CONFIRMED: cap fixed 200% (300% owner), 0.5%/day x 200 days generation (off-chain), claim delivers TTN bought at live price, sell (TTN->USDT) reduces cap by USD received (capped at available).
+Scripts added: verify2, claim-only, state2, debug.

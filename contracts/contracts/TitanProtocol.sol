@@ -235,11 +235,14 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     }
 
     // ------------------------------------------------ Backend-signed reward claim
-    /// @notice Claim an off-chain-computed reward (direct/level/pool). Paid in USDT from reserve.
-    /// @param capReduce true for rewards that reduce mining cap (direct/level/monthly); false for daily/weekly pools.
+    /// @notice Claim an off-chain-computed reward (direct/level/daily/weekly/monthly). Paid as TTN
+    ///         bought live from PancakeSwap with the USD reward value and sent to the user's wallet.
+    /// @param usdtValue USD value of the reward (18 decimals). @param minTtnOut slippage guard.
+    /// @param capReduce true for rewards that reduce mining cap (direct/level/monthly); false for daily/weekly.
     function claimReward(
-        uint256 usdtOut,
+        uint256 usdtValue,
         bool capReduce,
+        uint256 minTtnOut,
         uint256 nonce,
         uint256 deadline,
         bytes calldata signature
@@ -247,21 +250,28 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         security.whenActive(msg.sender);
         require(block.timestamp <= deadline, "expired");
         require(!usedNonce[nonce], "nonce used");
+        require(address(router) != address(0), "router unset");
 
         bytes32 digest = keccak256(
-            abi.encodePacked("CLAIM", msg.sender, usdtOut, capReduce, nonce, deadline, address(this), block.chainid)
+            abi.encodePacked("CLAIM", msg.sender, usdtValue, capReduce, nonce, deadline, address(this), block.chainid)
         );
         require(MessageHashUtils.toEthSignedMessageHash(digest).recover(signature) == signer, "bad sig");
         usedNonce[nonce] = true;
 
         if (capReduce) {
             Account storage a = accounts[msg.sender];
-            require(a.miningCap >= usdtOut, "no mining cap"); // no cap = no reward
-            a.miningCap -= usdtOut;
+            require(a.miningCap >= usdtValue, "no mining cap"); // no cap = no reward
+            a.miningCap -= usdtValue;
         }
 
-        usdt.safeTransfer(msg.sender, usdtOut);
-        emit RewardClaimed(msg.sender, usdtOut, capReduce, nonce);
+        // Buy TTN live from PancakeSwap with the USD reward value and send TTN to the user.
+        address[] memory path = new address[](2);
+        path[0] = address(usdt);
+        path[1] = address(ttn);
+        usdt.forceApprove(address(router), usdtValue);
+        router.swapExactTokensForTokens(usdtValue, minTtnOut, path, msg.sender, deadline);
+
+        emit RewardClaimed(msg.sender, usdtValue, capReduce, nonce);
     }
 
     // ------------------------------------------------ Backend-signed TTN sell

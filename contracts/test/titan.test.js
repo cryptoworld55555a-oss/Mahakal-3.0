@@ -89,14 +89,14 @@ describe("TITAN Protocol + Security", function () {
     const addr = await protocol.getAddress();
     const sig = await signClaim(backend, "CLAIM", user.address, E(20), true, 1, deadline, addr, chainId);
 
-    const balBefore = await usdt.balanceOf(user.address);
-    await protocol.connect(user).claimReward(E(20), true, 1, deadline, sig);
-    expect(await usdt.balanceOf(user.address)).to.equal(balBefore + E(20));
+    const ttnBefore = await ttn.balanceOf(user.address);
+    await protocol.connect(user).claimReward(E(20), true, 0, 1, deadline, sig);
+    expect(await ttn.balanceOf(user.address)).to.equal(ttnBefore + E(20)); // reward delivered as TTN (1:1 mock)
     const acc = await protocol.accountOf(user.address);
     expect(acc[3]).to.equal(E(180)); // 200 - 20 (capReduce)
 
     // reuse -> revert
-    await expect(protocol.connect(user).claimReward(E(20), true, 1, deadline, sig)).to.be.revertedWith("nonce used");
+    await expect(protocol.connect(user).claimReward(E(20), true, 0, 1, deadline, sig)).to.be.revertedWith("nonce used");
   });
 
   it("claim with capReduce fails when cap insufficient (no cap = no reward)", async () => {
@@ -105,7 +105,7 @@ describe("TITAN Protocol + Security", function () {
     const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
     const addr = await protocol.getAddress();
     const sig = await signClaim(backend, "CLAIM", user.address, E(5), true, 7, deadline, addr, chainId);
-    await expect(protocol.connect(user).claimReward(E(5), true, 7, deadline, sig)).to.be.revertedWith("no mining cap");
+    await expect(protocol.connect(user).claimReward(E(5), true, 0, 7, deadline, sig)).to.be.revertedWith("no mining cap");
   });
 
   it("sellMined swaps TTN->USDT and reduces cap by USD received", async () => {
