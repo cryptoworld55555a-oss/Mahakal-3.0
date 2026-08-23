@@ -265,3 +265,10 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Engine rank spectrum: demo ROOT bumped to 16 directs -> now Diamond (25/25 binary IDs, $8750/leg, monthly qualified, level $749). All ranks Active->Diamond compute correctly.
 - Fresh on-chain full-e2e (testnet, clean): buy/stake cap 200; claim stream-A (level+monthly) 1.477 TTN cap-unchanged price-UP; claim stream-B (ROI+daily+weekly = auto pool) 0.884 TTN cap-unchanged price-UP; sell 3 TTN -> $30.35 cap 200->169.65 price-DOWN. All A-to-Z functions verified.
 - CONSTRAINT (honest): true 50-wallet multi-ID ON-CHAIN rank test not run (only 1 funded testnet wallet; can't gas-fund many). Ranks/binary/pools are off-chain calc (unit-tested 105+); on-chain fns are user-agnostic & testnet-proven.
+
+## [2026-08-23] Pool qualification retest + dust-gaming fix
+- Testing agent (iteration_15) re-verified FINALIZED daily/weekly/monthly pool qualification end-to-end over live HTTP API: 140 passed, 0 critical.
+  - Daily = active + >=1 qualified direct ($50+ own stake) + cap>=$100. Weekly = active + >=5 qualified directs + cap>=$200. Monthly = binary qualification. Confirmed: 1 direct => daily only; 5 directs => daily+weekly; direct staking $40 => neither.
+  - DEMO_ROOT monthly_qualified + owner_tier(300% cap $3000) in SAME build run (no 1-run lag), monthly_pool>0 with non-empty Merkle proofs, tree/user root == merkle/latest root.
+- FIX (tree_engine.leg_stats): binary leg IDs now count only QUALIFIED active IDs (own stake >= $50), not any active. Closes dust-gaming hole flagged by testing agent (deviation #2). Verified: 20 dust ($1) nodes no longer count; genuine DEMO_ROOT ($350 nodes) still 25 IDs/leg + qualifies.
+- OPEN (user decision): testing agent noted the live monthly rule does NOT require a separate Diamond-rank gate (reward_engine.monthly_owner_qualified is stale dead code requiring Diamond). Live rule = 10 directs + $2000 + 25 qualified IDs/leg + $5000/leg, matching user's finalized spec. Left unchanged.

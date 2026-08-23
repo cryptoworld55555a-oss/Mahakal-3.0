@@ -379,7 +379,7 @@ class TestMe:
         assert d["total_profit_usdt"] == 0.0
         ps = d["profit_sources"]
         assert len(ps) == 5
-        assert [p["label"] for p in ps] == ["Generation", "Appreciation", "Direct", "Level", "Owner Club"]
+        assert [p["label"] for p in ps] == ["ROI", "Daily", "Weekly", "Level", "Monthly"]
         for p in ps:
             assert p["color"].startswith("#") and isinstance(p["value"], (int, float))
         assert set(d["team"]) == {"direct_reward_usdt", "level_reward_usdt"}

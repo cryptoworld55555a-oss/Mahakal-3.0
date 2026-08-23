@@ -39,14 +39,18 @@ DB_NAME = os.environ.get("DB_NAME") or backend_env.get("DB_NAME")
 ROOT_ADDR = "0x" + f"{1:040x}"          # DEMO_ROOT
 HEX_ROOT = re.compile(r"^0x[0-9a-f]{64}$")
 
-# Seed shape (server.reward_tree_seed_demo): ROOT $1000 40d, 2 legs x 25 nodes @ $250 12d
+# Seed shape (server.reward_tree_seed_demo): ROOT $1000 40d, 2 legs x 25 nodes @ $350 12d.
+# First 8 nodes of EACH leg are ROOT's sponsored directs => 16 directs, $5600 direct business.
 LEG_NODES = 25
-LEG_STAKE = 250.0
+LEG_STAKE = 350.0
 ROOT_STAKE = 1000.0
-# ROOT sponsor-tree level distribution (both legs): L1=10, L2=12, L3=24, L4=4
+ROOT_DIRECTS = 16
+ROOT_DIRECT_BUSINESS = ROOT_DIRECTS * LEG_STAKE          # 5600
+LEG_BUSINESS = LEG_NODES * LEG_STAKE                     # 8750 per binary leg
+# ROOT sponsor-tree level distribution (both legs): L1=16, L2=18, L3=16
 EXPECTED_ROOT_LEVEL_INCOME = (
-    10 * LEG_STAKE * 0.07 + 12 * LEG_STAKE * 0.03 + 24 * LEG_STAKE * 0.03 + 4 * LEG_STAKE * 0.02
-)  # = 465.0
+    16 * LEG_STAKE * 0.07 + 18 * LEG_STAKE * 0.03 + 16 * LEG_STAKE * 0.03
+)  # = 749.0
 
 
 # ----------------------------- fixtures -----------------------------
@@ -155,13 +159,13 @@ class TestBinaryQualificationAndOwnerClub:
         r0 = mongo.users.find_one({"uid": "DEMO_R0"})
         assert l0["binary_parent"] == ROOT_ADDR and l0["binary_side"] == "left"
         assert r0["binary_parent"] == ROOT_ADDR and r0["binary_side"] == "right"
-        # first 5 of each leg are ROOT's sponsored directs -> 10 directs, $2500
-        for uid in ("DEMO_L0", "DEMO_L4", "DEMO_R0", "DEMO_R4"):
+        # first 8 of each leg are ROOT's sponsored directs -> 16 directs, $5600
+        for uid in ("DEMO_L0", "DEMO_L7", "DEMO_R0", "DEMO_R7"):
             assert mongo.users.find_one({"uid": uid})["sponsor"] == ROOT_ADDR, uid
-        # deeper nodes are sponsored by their binary parent
-        l5 = mongo.users.find_one({"uid": "DEMO_L5"})
-        assert l5["sponsor"] == addrs["DEMO_L2"], l5["sponsor"]
-        assert l5["total_deposited"] == LEG_STAKE and l5["is_active"] is True
+        # deeper nodes (i >= 8) are sponsored by their binary parent uids[(i-1)//2]
+        l8 = mongo.users.find_one({"uid": "DEMO_L8"})
+        assert l8["sponsor"] == addrs["DEMO_L3"], l8["sponsor"]
+        assert l8["total_deposited"] == LEG_STAKE and l8["is_active"] is True
         assert mongo.users.count_documents(
             {"uid": {"$regex": "^DEMO_[LR]"}, "total_deposited": LEG_STAKE, "is_active": True}
         ) == 2 * LEG_NODES
@@ -190,8 +194,9 @@ class TestBinaryQualificationAndOwnerClub:
 
         bd = _bd(api, ROOT_ADDR)["breakdown"]
         assert bd["monthly_qualified"] is True, bd
-        assert bd["owner_tier"] is False, "snapshot of build#1 must predate the grant"
-        assert bd["mining_cap_usd"] == 2000, bd            # 200% of $1000
+        # Owner-Club is now granted and reflected in the SAME build run (no 1-run lag)
+        assert bd["owner_tier"] is True, "owner_tier must apply in the same build run"
+        assert bd["mining_cap_usd"] == 3000, bd            # 300% of $1000
         # one-time Owner-Club now persisted in db.users
         assert mongo.users.find_one({"uid": "DEMO_ROOT"})["owner_tier"] is True, \
             "owner_tier not persisted after first qualifying build"
@@ -228,22 +233,25 @@ class TestBinaryQualificationAndOwnerClub:
         bd = d["breakdown"]
         assert HEX_ROOT.match(d["root"])
         assert bd["address"] == ROOT_ADDR
-        assert bd["active_directs"] == 10, bd
-        assert bd["qualified_directs"] == 10, bd
-        assert bd["direct_business_usd"] == 2500, bd
+        assert bd["active_directs"] == ROOT_DIRECTS, bd
+        assert bd["qualified_directs"] == ROOT_DIRECTS, bd
+        assert bd["direct_business_usd"] == ROOT_DIRECT_BUSINESS, bd
         assert bd["binary"]["left_ids"] == LEG_NODES, bd
         assert bd["binary"]["right_ids"] == LEG_NODES, bd
-        assert bd["binary"]["left_business_usd"] == 6250, bd
-        assert bd["binary"]["right_business_usd"] == 6250, bd
+        assert bd["binary"]["left_business_usd"] == LEG_BUSINESS, bd
+        assert bd["binary"]["right_business_usd"] == LEG_BUSINESS, bd
         assert bd["monthly_qualified"] is True, bd
-        assert bd["rank"] == "Gold", bd                     # 10 directs / $2500
+        assert bd["rank"] == "Diamond", bd                  # 16 directs / $5600
         assert bd["level_income_usd"] == pytest.approx(EXPECTED_ROOT_LEVEL_INCOME), bd
-        assert bd["level_lapsed_usd"] == 0, bd              # Gold unlocks L1-L9, tree is 4 deep
+        assert bd["level_lapsed_usd"] == 0, bd              # Diamond unlocks L1-L15
         assert bd["monthly_pool_usd"] > 0, "qualified achiever got no monthly pool share"
-        # reducing bucket (level + monthly share) never exceeds the mining cap
-        assert bd["cumulative_reducing_usd"] <= bd["mining_cap_usd"] + 1e-6, bd
-        assert bd["cumulative_nonreducing_usd"] == pytest.approx(
-            bd["self_roi_usd"] + bd["daily_pool_usd"] + bd["weekly_pool_usd"], rel=1e-9)
+        # two cumulative streams: A = self ROI + level + monthly, B = daily + weekly
+        assert bd["claimable_stream_a_usd"] == pytest.approx(
+            bd["self_roi_usd"] + bd["level_income_usd"] + bd["monthly_pool_usd"], rel=1e-9), bd
+        assert bd["claimable_stream_b_usd"] == pytest.approx(
+            bd["daily_pool_usd"] + bd["weekly_pool_usd"], rel=1e-9), bd
+        assert bd["total_claimable_usd"] == pytest.approx(
+            bd["claimable_stream_a_usd"] + bd["claimable_stream_b_usd"], rel=1e-9), bd
         assert len(d["proofs"]) >= 1
 
     # --- non-qualifying leaf gets NO monthly share ---
@@ -374,11 +382,11 @@ class TestBinaryQualificationAndOwnerClub:
         # >= because other xdist workers may also create wallets concurrently
         assert after["user_count"] >= before["user_count"] + 1
         bd = _bd(api, addr.lower())["breakdown"]
-        assert bd["mining_cap_usd"] == 0 and bd["cumulative_reducing_usd"] == 0
+        assert bd["mining_cap_usd"] == 0 and bd["total_claimable_usd"] == 0
         assert bd["monthly_qualified"] is False, bd
         rb = _bd(api, ROOT_ADDR)["breakdown"]
-        assert rb["direct_business_usd"] == 2500, rb
-        assert rb["active_directs"] == 10, rb
+        assert rb["direct_business_usd"] == ROOT_DIRECT_BUSINESS, rb
+        assert rb["active_directs"] == ROOT_DIRECTS, rb
         assert rb["level_income_usd"] == pytest.approx(EXPECTED_ROOT_LEVEL_INCOME), rb
         assert rb["monthly_qualified"] is True, rb
 

@@ -96,7 +96,7 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
             bchild[bp][side] = u["address"].lower()
 
     def leg_stats(start_addr):
-        """Active IDs + business in a binary leg, counted only MAX_DEPTH levels deep."""
+        """Qualified active IDs (own stake >= $50) + business in a binary leg, MAX_DEPTH deep."""
         ids, biz = 0, 0.0
         stack = [(start_addr, 1)]
         while stack:
@@ -105,8 +105,10 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
                 continue
             u = by_addr[a]
             if u.get("active"):
-                ids += 1
-                biz += float(u.get("stake_usd", 0))
+                stake = float(u.get("stake_usd", 0))
+                if stake >= MIN_MEMBERSHIP_USD:
+                    ids += 1          # count only $50+ QUALIFIED IDs (not dust actives)
+                biz += stake
             ch = bchild[a]
             stack.append((ch["left"], depth + 1))
             stack.append((ch["right"], depth + 1))

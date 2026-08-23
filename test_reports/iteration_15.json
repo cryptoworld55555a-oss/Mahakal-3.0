@@ -1,0 +1,47 @@
+{
+  "summary": "Backend-only e2e re-verification of the FINALIZED daily/weekly/monthly pool qualification rules over the real HTTP API (public preview URL). New suite /app/backend/tests/test_pool_qualification_api.py (20 tests) seeds a QA network directly in Mongo + runs seed-demo -> tree/build -> tree/user -> merkle/latest. ALL requested behaviours PASS: 1 qualifying direct => DAILY only; 5 qualifying directs => DAILY+WEEKLY; direct staking $40 => NEITHER; own stake $40 (cap $80<$100) => NEITHER; no directs => NEITHER; DEMO_ROOT monthly_qualified=true + owner_tier=true + mining_cap=$3000 (300% of $1000) in the SAME build run (no 1-run lag); monthly_pool_usd>0 with non-empty Merkle proofs; tree/user root == merkle/latest root; equal pool split among the eligible set and weekly-eligible is a subset of daily-eligible; total_claimable = stream_a + stream_b with stream_b == daily+weekly and stream_a == ROI+level+monthly; two leaves per user (capReduce true/false) whose amount_wei match the two streams; LEVEL_BPS = 15 levels summing to 2500 bps (25%) with correct tiering and rank-gated crediting (QA chain: Active rank upline earns only L1 $7, $6 lapses; Diamond DEMO_ROOT earns $749 across L1-L3 with 0 lapsed). Full regression: 140 passed, 2 documented xfail (serial run). I also repaired 10 STALE assertions in pre-existing suites that still expected the OLD contract (LEG_STAKE $250/10 directs, cumulative_reducing_usd/cumulative_nonreducing_usd fields, owner-club 1-run lag, old profit_sources labels) - test-code only, no product code touched.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tree_engine.compute (monthly_qualified)", "issue": "SPEC DEVIATION: the finalized rule says monthly needs 'Diamond rank + 10 active directs + $2000 direct business + ...', but the engine never checks rank. Proven: 10 directs x $200 = $2000 gives rank Gold yet monthly_qualified=true (tests/test_monthly_rule_edges.py::test_monthly_requires_diamond_rank, xfail). Note reward_engine.monthly_owner_qualified DOES check Diamond but is dead code - tree_engine does not call it. Confirm whether Diamond (15 directs/$5000) is intended; if yes the two direct thresholds are redundant."},
+      {"endpoint": "tree_engine.leg_stats (25 IDs per leg)", "issue": "SPEC DEVIATION: rule says 25 'qualified IDs' per leg, engine counts ANY active user in the leg regardless of stake. Proven: 5 x $1000 + 20 x $1 dust nodes per leg => left_ids=25 and monthly_qualified=true with only 5 qualified ($50+) IDs (tests/test_monthly_rule_edges.py::test_leg_ids_should_count_only_qualified_ids, xfail). Gameable with dust/zero-stake actives."},
+      {"endpoint": "GET /api/admin/users", "issue": "Rows expose only total_claimable_usd; the two cumulative streams (claimable_stream_a_usd / claimable_stream_b_usd) and daily/weekly/monthly shares are not surfaced, so the admin panel cannot show the cap-relevant split. Non-blocking."},
+      {"endpoint": "POST /api/reward/tree/build", "issue": "No auth in this env (ADMIN_API_KEY unset), so anyone can trigger a full rebuild + Merkle root persist. Expected per env config, but must be set before deploy."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_pool_qualification_api.py",
+    "/app/backend/tests/test_monthly_rule_edges.py",
+    "/app/test_reports/pytest/pool_qual_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Decide + align monthly qualification with the finalized rule: add the Diamond-rank gate (or drop 'Diamond rank' from the spec) in tree_engine.compute; remove/again wire the dead reward_engine.monthly_owner_qualified.",
+    "Decide whether binary leg IDs must be QUALIFIED (own stake >= $50) rather than merely active; current counting is dust-gameable.",
+    "Optional: surface claimable_stream_a_usd / claimable_stream_b_usd + daily/weekly/monthly shares in GET /api/admin/users rows.",
+    "Set ADMIN_API_KEY before deployment so seed-demo / tree/build are protected."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 838 lines - split reward/tree/admin routers into modules (>700 line guideline).",
+    "tree_engine.leg_stats is O(N) per user (called for every address) => O(N^2) full-network walk; fine at 51 users but will not scale to thousands. Consider a single post-order pass computing subtree (ids, business).",
+    "POST /api/reward/tree/build recomputes the whole tree twice whenever any user newly qualifies; acceptable now, but combine with the O(N^2) leg walk it doubles a quadratic cost.",
+    "reward_engine.monthly_owner_qualified is unused dead code and disagrees with the live tree_engine rule (it requires Diamond); two sources of truth for the same rule is a bug magnet.",
+    "seed-demo inserts 51 docs with 51 sequential awaits (insert_one in a loop) - use insert_many.",
+    "Pool eligibility uses caps[a] (TOTAL mining cap) while the rule text says 'AVAILABLE mining cap >= $100/$200'. Since claims never reduce cap and sells are not yet tracked, total == available today; once sell-tracking lands, this must switch to available cap or eligibility will be wrong."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pool_qualification_api.py (new)",
+    "/app/backend/tests/test_monthly_rule_edges.py (new)",
+    "/app/backend/tests/test_tree_engine_api.py (stale assertions updated to current seed shape/fields)",
+    "/app/backend/tests/test_admin_api.py (stale row-shape assertion updated)",
+    "/app/backend/tests/backend_test.py (stale profit_sources labels updated)"
+  ],
+  "success_rate": {"backend": "100% (140 passed, 2 documented xfail, serial run)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "POST /api/reward/tree/seed-demo (51 DEMO_* users). Plus 16 temporary QA_* users inserted directly into db.users (QA_A 1 direct $50; QA_B 5 directs $50; QA_C direct $40; QA_D own stake $40; QA_CH0-3 4-deep sponsor chain) and protocol_stats pools temporarily set to daily 3200 / weekly 7000 / monthly 9000. ALL QA_* users are deleted and pools restored in the class teardown, which then re-runs tree/build so the persisted snapshot has no dangling QA users. DEMO_* users remain (intentional).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "None needed - these endpoints are unauthenticated (ADMIN_API_KEY unset). Wallet-only auth per /app/memory/test_credentials.md.",
+  "context_for_next_testing_agent": "Run the suite SERIALLY (`pytest tests/ -n 0`) - pytest.ini's -n 2 --dist loadscope puts different classes on different workers and they race on the single global reward snapshot / tree build (that alone caused 3 phantom failures). Every test class in these suites assumes it owns the snapshot. test_pool_qualification_api.py keeps all 20 tests in ONE class for that reason and cleans up after itself. DEFAULT_STATS already has non-zero weekly (8750) / monthly (21400) pools, so eligibility shares are non-zero out of the box. Current DEMO seed shape: ROOT $1000/40d, 2 legs x 25 nodes @ $350/12d, first 8 of each leg are ROOT directs => 16 directs / $5600 direct business / Diamond / level income $749 / leg business $8750 each; ROOT ends up owner_tier=true with cap $3000 on the FIRST build. Remaining open questions are the 2 xfail spec deviations in test_monthly_rule_edges.py (Diamond-rank gate, qualified vs active leg IDs).",
+  "rca_of_the_issue": "No product defect found in the pool-qualification change: daily = active + qualified_directs>=1 + cap>=100, weekly = active + qualified_directs>=5 + cap>=200, monthly = binary qualification, all confirmed through the live HTTP flow. The 10 pre-existing test failures I hit were STALE test expectations, not regressions: the seed shape changed ($250->$350 stake, 10->16 root directs), the breakdown schema moved from cumulative_reducing_usd/cumulative_nonreducing_usd to claimable_stream_a_usd/claimable_stream_b_usd/total_claimable_usd, the Owner-Club grant no longer lags a build, and /api/me profit_sources labels changed to ROI/Daily/Weekly/Level/Monthly. I updated those assertions to the current contract (test code only). The only genuine findings are the two monthly-qualification spec deviations (missing Diamond-rank gate; leg IDs counted as active rather than $50-qualified)."
+}

@@ -76,7 +76,7 @@ class TestAdminPanelApi:
         for row in d["rows"]:
             for k in ("address", "uid", "stake_usd", "is_active", "owner_tier", "rank",
                       "mining_cap_usd", "monthly_qualified", "binary",
-                      "cumulative_reducing_usd", "cumulative_nonreducing_usd"):
+                      "total_claimable_usd"):
                 assert k in row, f"row missing {k}: {row}"
             assert "_id" not in row
             assert row["address"].startswith("0x") and row["address"] == row["address"].lower()
