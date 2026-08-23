@@ -142,19 +142,22 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
         self_roi[a] = min(cap, days * cap * rw.DAILY_ROI_BPS / BPS)
 
     # ------------------------------------------------ Pools
+    # Pool eligibility (exact rules): daily = 1 active direct($50+) + cap>=$100;
+    # weekly = 5 active directs($50+) + cap>=$200; monthly = full binary qualification.
     active_set = {a for a in by_addr if by_addr[a].get("active")}
-    silver_plus = {a for a in active_set if rank[a]["max_level"] >= 6}
+    daily_elig = {a for a in active_set if qualified_directs[a] >= 1 and caps[a] >= 100}
+    weekly_elig = {a for a in active_set if qualified_directs[a] >= 5 and caps[a] >= 200}
     achievers = {a for a in active_set if monthly_qualified[a]}
-    daily_share = pools.get("daily", 0) / len(active_set) if active_set else 0
-    weekly_share = pools.get("weekly", 0) / len(silver_plus) if silver_plus else 0
+    daily_share = pools.get("daily", 0) / len(daily_elig) if daily_elig else 0
+    weekly_share = pools.get("weekly", 0) / len(weekly_elig) if weekly_elig else 0
     monthly_share = pools.get("monthly", 0) / len(achievers) if achievers else 0
 
     # ------------------------------------------------ Leaves + breakdown
     leaves = []; breakdown = {}
     for a in by_addr:
         m_share = monthly_share if a in achievers else 0
-        d_share = daily_share if a in active_set else 0
-        w_share = weekly_share if a in silver_plus else 0
+        d_share = daily_share if a in daily_elig else 0
+        w_share = weekly_share if a in weekly_elig else 0
 
         # Two cumulative reward streams (cap is NOT touched at claim; only at sell).
         # streamA = self ROI + level income + monthly pool; streamB = daily + weekly pool.
