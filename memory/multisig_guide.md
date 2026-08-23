@@ -19,3 +19,8 @@ Multisig (2-of-3) secures it: one leaked key is not enough.
 - Wire admin panel to connect Safe (WalletConnect) or use Safe Transaction Builder to call contract fns
 
 ## Mainnet order: deploy -> add liquidity -> LP burn (lock) -> create Safe -> transfer Protocol+Security to Safe -> renounce TTN token ownership (last).
+
+## USER-PROVIDED SAFE ADDRESS (for mainnet admin control):
+SAFE_ADDRESS = 0xac70aB96CF6bB4AfB28dE85932267dac995dEB1f
+- At MAINNET deploy: transferOwnership(SAFE) on Protocol; grant ADMIN_ROLE+DEFAULT_ADMIN_ROLE to SAFE on Security then renounce old roles.
+- DO NOT transfer TESTNET ownership to this Safe (Safe only exists on BSC mainnet; testnet has no Safe to sign -> would lock testnet admin).

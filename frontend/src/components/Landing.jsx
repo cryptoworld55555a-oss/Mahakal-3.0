@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getDashboardStats } from "@/lib/api";
-import { LOGO_URL, COIN_HERO_URL } from "@/config";
+import { LOGO_URL, COIN_HERO_URL, ONCHAIN } from "@/config";
 import WalletModal from "@/components/WalletModal";
 
 const usd = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n || 0);
@@ -68,21 +68,25 @@ export default function Landing() {
     { Icon: Youtube, label: "YouTube", href: "#" },
   ];
   const contracts = [
-    { Icon: Users, label: "Creator Address", value: "" },
-    { Icon: KeyRound, label: "Published Private Key", value: "" },
-    { Icon: BadgeCheck, label: "TTN Address", value: "" },
-    { Icon: Settings, label: "Mining Engine", value: "" },
-    { Icon: Rabbit, label: "Pancake V2 Router", value: "" },
-    { Icon: DollarSign, label: "USDT Address", value: "" },
+    { Icon: Users, label: "Creator Address", value: ONCHAIN.creator, type: "address" },
+    { Icon: KeyRound, label: "Published Private Key", value: ONCHAIN.publishedKey, type: "key" },
+    { Icon: BadgeCheck, label: "TTN Address", value: ONCHAIN.token, type: "address" },
+    { Icon: Settings, label: "Mining Engine", value: ONCHAIN.protocol, type: "address" },
+    { Icon: Rabbit, label: "Pancake V2 Router", value: ONCHAIN.router, type: "address" },
+    { Icon: DollarSign, label: "USDT Address", value: ONCHAIN.usdt, type: "address" },
   ];
-  const shortAddr = (v) => (v ? `${v.slice(0, 6)}…${v.slice(-4)}` : "0x0000…0000");
+  const shortAddr = (v, type) => {
+    if (!v) return type === "key" ? "Published after renounce" : "0x0000…0000";
+    return `${v.slice(0, 6)}…${v.slice(-4)}`;
+  };
   const copyIng = (c) => {
-    if (!c.value) return toast("Available after testnet deployment");
+    if (!c.value) return toast(c.type === "key" ? "Key is published after ownership renounce" : "Available after deployment");
     navigator.clipboard?.writeText(c.value).then(() => toast.success(`${c.label} copied`)).catch(() => toast.error("Copy failed"));
   };
   const openIng = (c) => {
-    if (!c.value) return toast("Address goes live after testnet deployment");
-    window.open(`https://testnet.bscscan.com/address/${c.value}`, "_blank");
+    if (c.type === "key") return toast("Private keys have no explorer page — copy & verify locally");
+    if (!c.value) return toast("Address goes live after deployment");
+    window.open(`${ONCHAIN.explorer}/address/${c.value}`, "_blank");
   };
 
   return (
@@ -250,18 +254,24 @@ export default function Landing() {
                   className="mt-1 flex items-center gap-2 rounded-md active:scale-95"
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded border border-[#34D07A]/40 text-[#34D07A]"><Copy size={11} /></span>
-                  <span className="font-mono text-xs text-white/55">{shortAddr(c.value)}</span>
+                  <span className="font-mono text-xs text-white/55">{shortAddr(c.value, c.type)}</span>
                 </button>
               </div>
-              <button
-                onClick={() => openIng(c)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#34D07A]/45 text-[#34D07A] active:scale-95"
-              >
-                <ArrowRight size={16} />
-              </button>
+              {c.type === "key" ? (
+                <span className="flex h-9 items-center rounded-full border border-[#D6C51E]/40 bg-[#D6C51E]/10 px-2.5 text-[10px] font-bold text-[#D6C51E]">
+                  <Lock size={11} className="mr-1" /> Trustless
+                </span>
+              ) : (
+                <button
+                  onClick={() => openIng(c)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#34D07A]/45 text-[#34D07A] active:scale-95"
+                >
+                  <ArrowRight size={16} />
+                </button>
+              )}
             </div>
           ))}
-          <p className="mt-3 text-center text-[11px] text-white/40">Addresses go live after BSC Testnet deployment.</p>
+          <p className="mt-3 text-center text-[11px] text-white/40">TTN, Mining Engine, Router & USDT are live on-chain. Creator address & private key are published after ownership renounce.</p>
         </div>
 
         {/* STAKE PARTICIPATION */}
