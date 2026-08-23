@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Bell, Menu, Copy, LogOut, Check, ShieldCheck, ExternalLink, X, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
@@ -120,6 +121,7 @@ export default function Header() {
                       <button
                         data-testid="menu-onchain-withdraw"
                         onClick={() => {
+                          setShowHow(false);
                           setWithdrawOpen(true);
                           setMenuOpen(false);
                         }}
@@ -190,14 +192,14 @@ export default function Header() {
 
       <WalletModal open={open} onClose={() => setOpen(false)} />
 
-      {withdrawOpen && (
+      {withdrawOpen && createPortal(
         <div
           data-testid="onchain-withdraw-modal"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 pb-28 backdrop-blur-sm"
           onClick={() => setWithdrawOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-[#3C6B33]/60 bg-[#0A1710] p-5"
+            className="max-h-[78vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-[#3C6B33]/60 bg-[#0A1710] p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -263,7 +265,8 @@ export default function Header() {
               </p>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

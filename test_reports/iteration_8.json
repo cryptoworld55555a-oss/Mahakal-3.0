@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only retest of the 'On-chain Withdrawal' modal scroll/visibility fix in /app/frontend/src/components/Header.jsx. Connected via Demo wallet, opened header menu -> On-chain Withdrawal, and validated all sections (title, Network/Chain ID/RPC/Protocol/TTN rows + copy buttons, BSCScan button, green security box, 'How to withdraw' + i-button reveal, X close) on 390x844 mobile and 1920x1080 desktop. Both PASS. Additional short-viewport probes (360x640, 390x700, 414x736) reveal the modal's bottom edge still overlaps the fixed BottomNav, and at 360x640 the nav actually intercepts the click on the 'i' button (data-testid=onchain-how-info).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Header - On-chain Withdrawal modal vs BottomNav", "issue": "On short mobile viewports the modal's bottom (85vh, vertically centered) extends under the fixed bottom nav (h-20). Measured: 360x640 -> modalBottom 592 vs navTop 560 and document.elementFromPoint at the 'i' button center returns data-testid='bottom-nav' (Playwright normal click times out: 'bottom-nav intercepts pointer events'). 390x700 -> modalBottom 647.5 vs navTop 620; 414x736 -> modalBottom 680.8 vs navTop 656 (visually clipped though still clickable). At 390x844 clearance is only ~2px (modalBottom 761.9 vs navTop 764), so real phones with browser chrome (smaller visual viewport) will hit the same overlap. Fix suggestion: reduce inner container height / add bottom clearance (e.g. max-h-[calc(85vh-5rem)] plus pb-24 on the overlay) and/or ensure the modal is above the nav (nav is z-50 but wins the hit-test, indicating the modal is not in a higher stacking context / not portaled to body).", "selector": "[data-testid=\"onchain-withdraw-modal\"] > div, [data-testid=\"bottom-nav\"]", "priority": "MEDIUM-HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "On-chain Withdrawal modal (mobile 390x844)", "issues": ["Content fits exactly at 85vh with ~2px clearance above bottom nav - no breathing room; long RPC/contract values are truncated (expected, copy buttons work)"]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Add bottom clearance for the On-chain Withdrawal modal so its content never sits under the fixed BottomNav on short viewports (<=740px height); e.g. max-h-[calc(85vh-5rem)] + pb-24 on the overlay, or render modal in a portal with z above nav."
+  ],
+  "critical_code_review_comments": [
+    "Modal markup is inline in Header.jsx and depends on `> div` structure; consider extracting to its own component and add a data-testid on the inner scroll container for stable testing.",
+    "Bottom nav (z-50) wins the hit test over an overlay declared z-[100] on 360x640 - indicates a stacking-context bug; verify the modal isn't nested inside a transformed/z-indexed ancestor."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested", "frontend": "requested scenarios: 100% on 390x844 and 1920x1080; failed on 360x640 (i-button click blocked by bottom nav)"},
+  "seed_data_creation": "None - used in-app Demo wallet connect",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Not needed - Demo wallet connect",
+  "context_for_next_testing_agent": "Reported fix (max-h-[85vh] overflow-y-auto) works for 390x844 and desktop: all rows, BSCScan button, security box, 'How to withdraw' + revealed onchain-how-text are visible/reachable and X close works. Remaining edge case: viewports with height <= ~740px overlap the BottomNav; at 640px height the nav intercepts clicks on onchain-how-info. Re-test with page.set_viewport_size 360x640 after the clearance fix.",
+  "rca_of_the_issue": "Inner container is max-h-[85vh] and vertically centered in the overlay, so at 640px viewport height the modal spans ~48px-592px while the fixed BottomNav occupies 560-640px; the nav paints over and hit-tests above the modal bottom, hiding/blocking the 'How to withdraw' row."
+}

@@ -1,0 +1,21 @@
+{
+  "summary": "Frontend-only re-test of the On-chain Withdrawal modal vs BottomNav overlap bug (iteration_8). Connected via Demo wallet, opened header menu -> 'On-chain Withdrawal' and validated the modal on 360x640, 390x700, 414x736, 390x844 and desktop 1920x1080. The createPortal + z-[200] + pb-28 + max-h-[78vh] fix RESOLVES the issue: on every viewport the 'i' info button (onchain-how-info) is hit-testable (document.elementFromPoint resolves inside the button, not bottom-nav) and was clicked with a NORMAL (non-force) click successfully. The 'How to withdraw' instruction text renders fully above the BottomNav (e.g. 360x640: nav top 560 vs modal content inside 78vh scroll area; 390x700 text bottom 574 vs nav top 620; 390x844 text bottom 681 vs nav top 764 - no overlap). All sections (title, Network/Chain ID/RPC/Protocol/TTN rows, BSCScan button, green security box, How-to row + i-button) are reachable via internal scroll. X close (onchain-withdraw-close) removes the portal node on all viewports. Desktop 1920x1080 opens/closes fine.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Header - On-chain Withdrawal modal", "issue": "The 'How to withdraw' expand state (showHow) is not reset when the modal is closed. Re-opening the modal shows the instruction text already expanded, and the next click on the 'i' button collapses it - inconsistent initial state (cosmetic only, does not block).", "selector": "[data-testid=\"onchain-how-info\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": ["Optional/low: reset the showHow toggle to false when the On-chain Withdrawal modal closes so it always opens collapsed."],
+  "critical_code_review_comments": ["Modal is correctly portaled to document.body with z-[200]; no remaining stacking-context conflict with the fixed z-50 bottom-nav. Consider also locking body scroll while the portal modal is open for polish."],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested", "frontend": "100% (all 5 viewports pass)"},
+  "seed_data_creation": "None - Demo wallet connect only",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "iteration_8 BottomNav-intercept bug is FIXED and verified at 360x640/390x700/414x736/390x844/1920x1080 with normal clicks. Only remaining nit: showHow state persists across modal open/close. Note for test scripts: because of that state persistence, toggling the 'i' button on a re-opened modal may hide the text - click twice or reload between viewports.",
+  "rca_of_the_issue": "Original bug: modal rendered inside a transformed/stacked header subtree with z-index below the fixed BottomNav, so at short viewports the bottom rows were clipped and the nav intercepted pointer events on the 'i' button. Fix (createPortal to body + z-[200] overlay + pb-28 + max-h-[78vh] scroll container) removes the stacking conflict and keeps content above the nav. Verified via elementFromPoint hit tests and bounding-box comparisons."
+}
