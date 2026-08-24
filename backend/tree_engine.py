@@ -85,24 +85,47 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
 
     rank = {a: rw.rank_for(active_directs[a], direct_business[a], team_business[a]) for a in by_addr}
 
-    # Level income: for each staking user, credit uplines L1..L15 (rank-gated, active-gated)
+    # Level income — STRICT STAKE-TIME model (AETHERA "instant" reward):
+    # Process every stake in ACTIVATION ORDER. An upline earns level% on a downline's
+    # stake ONLY IF the upline was already qualified (rank + active) at THAT moment.
+    # Qualifying later does NOT retro-pay past stakes (they stay lapsed).
     level_income = defaultdict(float)
     level_lapsed = defaultdict(float)
-    for u in users:
+    inc_directs = defaultdict(int)        # active directs so far (matches active_directs)
+    inc_dbiz = defaultdict(float)         # direct business so far
+    inc_tbiz = defaultdict(float)         # 15-level team business so far
+    inc_active = set()
+
+    def _staked_at(u):
+        return u.get("activated_at") or u.get("created_at") or ""
+
+    stake_events = sorted(
+        (u for u in users if u.get("active") and float(u.get("stake_usd", 0)) > 0),
+        key=_staked_at,
+    )
+    for u in stake_events:
+        a = u["address"].lower()
         s = float(u.get("stake_usd", 0))
-        if s <= 0:
-            continue
-        anc_addr = (u.get("sponsor") or "").lower()
-        lvl = 1
-        while anc_addr and anc_addr in by_addr and lvl <= MAX_DEPTH:
+        sponsor = (u.get("sponsor") or "").lower()
+        # 1) This stake joins the network NOW (counts toward qualifying uplines on itself too).
+        inc_active.add(a)
+        if sponsor and sponsor in by_addr:
+            inc_directs[sponsor] += 1
+            inc_dbiz[sponsor] += s
+        anc = sponsor; lvl = 1
+        while anc and anc in by_addr and lvl <= MAX_DEPTH:
+            inc_tbiz[anc] += s
+            anc = (by_addr[anc].get("sponsor") or "").lower(); lvl += 1
+        # 2) Credit uplines using their rank AT THIS MOMENT (stake-time snapshot).
+        anc = sponsor; lvl = 1
+        while anc and anc in by_addr and lvl <= MAX_DEPTH:
             amt = s * rw.LEVEL_BPS[lvl - 1] / BPS
-            anc = by_addr[anc_addr]
-            if lvl <= rank[anc_addr]["max_level"] and anc.get("active"):
-                level_income[anc_addr] += amt
+            r = rw.rank_for(inc_directs[anc], inc_dbiz[anc], inc_tbiz[anc])
+            if anc in inc_active and lvl <= r["max_level"]:
+                level_income[anc] += amt
             else:
-                level_lapsed[anc_addr] += amt
-            anc_addr = (anc.get("sponsor") or "").lower()
-            lvl += 1
+                level_lapsed[anc] += amt
+            anc = (by_addr[anc].get("sponsor") or "").lower(); lvl += 1
 
     # ------------------------------------------------ Binary tree (qualification only)
     bchild = defaultdict(lambda: {"left": None, "right": None})

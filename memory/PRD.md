@@ -304,3 +304,9 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
   - /api/me profit_sources 'Level' + /api/team direct/level reward fields now use level_income_net_usd (were gross, over-reported by 10%).
 - Verified: full backend suite 171 passed (0 xfail) serially; live curl confirms monthly-qualify->Diamond, simulate->Diamond L15 unlocked, /me sources sum == total.
 - Left as-is (minor, simulator-only): reward_engine.pool_contribution() per-stake monthly estimate still models 10% of daily+weekly only (can't know network-wide direct/level from a single stake input); does NOT affect real distribution in tree_engine.
+
+## [2026-08-23] Level income -> STRICT stake-time model (user choice "b", AETHERA "instant")
+- tree_engine.compute() level income rewritten: process every stake in ACTIVATION ORDER (activated_at/created_at). An upline earns level% on a downline's stake ONLY IF the upline was already qualified (rank + active) at that moment. Qualifying later does NOT retro-pay past stakes (they stay lapsed). Incremental counters (inc_directs/inc_dbiz/inc_tbiz/inc_active) maintain rank at each stake-time via rank_for.
+- Convergence: display rank/qualification still use final all-active state; only level INCOME uses stake-time snapshot. Deterministic across rebuilds (fixed activation order).
+- Verified: targeted timing test -> a level-2 stake BEFORE upline reached Star lapses ($3), one AFTER earns ($3); full backend suite 171 passed; DEMO_ROOT level income unchanged ($749, 0 lapsed since root qualifies early).
+- CAVEAT (data model): only cumulative total_deposited + single activated_at is stored per user, so each user's stake is treated as ONE event at their activation time. Per-top-up timing is not tracked (would need individual stake_event records). Acceptable for current model; revisit if per-top-up accuracy needed.
