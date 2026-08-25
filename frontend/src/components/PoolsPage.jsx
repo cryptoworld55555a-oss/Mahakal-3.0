@@ -40,7 +40,7 @@ function PoolCard({ p, onInfo, onHistory, onClaim, busy }) {
       </div>
 
       <div className="mt-3 text-[11px] uppercase tracking-wide text-white/45">Current Pool Balance</div>
-      <div className="text-3xl font-extrabold text-white">${usd(p.balance)}</div>
+      <div className="text-3xl font-extrabold text-white">${usd2(p.balance)}</div>
 
       <div className="mt-3 rounded-xl border border-[#3C6B33]/50 p-3">
         <div className="flex items-center justify-between border-b border-white/5 pb-2 text-sm">
@@ -213,7 +213,7 @@ export default function PoolsPage() {
                 <div className="mb-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl border border-[#3C6B33]/50 p-3">
                     <div className="text-[10px] uppercase text-white/45">Pool Balance</div>
-                    <div className="text-lg font-bold text-white">${usd(modal.pool.balance)}</div>
+                    <div className="text-lg font-bold text-white">${usd2(modal.pool.balance)}</div>
                   </div>
                   <div className="rounded-xl border border-[#3C6B33]/50 p-3">
                     <div className="text-[10px] uppercase text-white/45">Your Est. Reward</div>
