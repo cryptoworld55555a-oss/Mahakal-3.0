@@ -107,7 +107,8 @@ export default function MiningPage() {
     setBusy("claim");
     try {
       const hashes = await claimAllRewards(address);
-      toast.success(`Claimed! ${hashes.length} tx · TTN in your wallet`);
+      const labels = hashes.map((h) => h.label).join(", ");
+      toast.success(`Claimed ${hashes.length} reward${hashes.length > 1 ? "s" : ""}: ${labels} · TTN in your wallet`);
       await load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Claim failed");

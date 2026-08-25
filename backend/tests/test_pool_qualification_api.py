@@ -254,17 +254,26 @@ class TestPoolQualificationE2E:
                 bd["self_roi_usd"] + bd["level_income_net_usd"] + bd["monthly_pool_usd"],
                 rel=1e-6, abs=1e-6), a
 
-        # leaves: stream_a leaf cap_reduce=True, stream_b leaf cap_reduce=False
+        # leaves: one leaf PER CATEGORY (0=ROI 1=Level 2=Daily 3=Weekly 4=Monthly)
         r = api.get(f"{API}/reward/tree/user/{B_ROOT}", timeout=60)
         proofs = r.json()["proofs"]
-        flags = sorted(bool(p["capReduce"]) for p in proofs)
-        assert flags == [False, True], f"expected two cumulative streams, got {proofs}"
-        wei = {bool(p["capReduce"]): int(p["amount_wei"]) for p in proofs}
+        cats = sorted(int(p["category"]) for p in proofs)
+        assert cats == sorted(set(cats)), f"duplicate category leaves: {proofs}"
+        assert set(cats) <= {0, 1, 2, 3, 4} and len(cats) >= 2, proofs
+        wei = {int(p["category"]): int(p["amount_wei"]) for p in proofs}
         assert all(v > 0 for v in wei.values()), proofs
         bd = bmap[B_ROOT]
-        assert wei[True] == pytest.approx(bd["claimable_stream_a_usd"] * 1e18, rel=1e-9)
-        assert wei[False] == pytest.approx(bd["claimable_stream_b_usd"] * 1e18, rel=1e-9)
+        cat_map = {0: "self_roi_usd", 1: "level_income_net_usd", 2: "daily_pool_usd",
+                   3: "weekly_pool_usd", 4: "monthly_pool_usd"}
+        for cat, field in cat_map.items():
+            if bd[field] > 0:
+                assert cat in wei, f"missing category {cat} leaf for {field}"
+                assert wei[cat] == pytest.approx(bd[field] * 1e18, rel=1e-9), (cat, field)
+            else:
+                assert cat not in wei, f"unexpected category {cat} leaf for zero {field}"
+        assert sum(wei.values()) == pytest.approx(bd["total_claimable_usd"] * 1e18, rel=1e-6)
         assert all(isinstance(p["proof"], list) for p in proofs)
+        assert all("capReduce" not in p for p in proofs)
 
     # ------------------------------------------------------- level income
     def test_14_level_bps_totals_25pct(self):

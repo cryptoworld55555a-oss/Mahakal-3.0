@@ -33,6 +33,9 @@ MONTHLY_LEG_IDS = 25
 MONTHLY_LEG_BUSINESS = 5000.0
 MAX_DEPTH = 15
 
+# Reward categories -> distinct named claim functions on-chain (BscScan labels).
+CAT_ROI, CAT_LEVEL, CAT_DAILY, CAT_WEEKLY, CAT_MONTHLY = 0, 1, 2, 3, 4
+
 
 def _days_since(iso: str, now: datetime) -> int:
     if not iso:
@@ -254,9 +257,11 @@ def compute(users: List[dict], pools: Dict[str, float], now: datetime = None) ->
             "claimable_stream_b_usd": round(stream_b, 6),
             "total_claimable_usd": round(stream_a + stream_b, 6),
         }
-        if stream_a > 0:
-            leaves.append((a, int(round(stream_a * 1e18)), True))
-        if stream_b > 0:
-            leaves.append((a, int(round(stream_b * 1e18)), False))
+        # Per-category cumulative leaves so each claim type shows a distinct named
+        # function on BscScan. category: 0=ROI 1=Level 2=Daily 3=Weekly 4=Monthly.
+        for cat_amt, cat_id in ((self_roi[a], CAT_ROI), (lvl_net, CAT_LEVEL),
+                                (d_net, CAT_DAILY), (w_net, CAT_WEEKLY), (m_share, CAT_MONTHLY)):
+            if cat_amt > 0:
+                leaves.append((a, cat_id, int(round(cat_amt * 1e18))))
 
     return leaves, breakdown

@@ -186,8 +186,10 @@ class TestBinaryQualificationAndOwnerClub:
         assert isinstance(d["proofs"], list) and len(d["proofs"]) == d["leaf_count"]
         assert "_id" not in d
         p = d["proofs"][0]
-        for k in ("address", "amount_wei", "capReduce", "proof"):
+        for k in ("address", "amount_wei", "category", "proof"):
             assert k in p, p
+        assert "capReduce" not in p, p
+        assert p["category"] in (0, 1, 2, 3, 4), p
         assert isinstance(p["amount_wei"], str)
         for k in ("daily", "weekly", "monthly"):
             assert d["pools"][k] >= 0
@@ -291,7 +293,7 @@ class TestBinaryQualificationAndOwnerClub:
         root = d["root"]
         bad = []
         for p in d["proofs"]:
-            leaf = merkle.leaf_hash(p["address"], int(p["amount_wei"]), p["capReduce"])
+            leaf = merkle.leaf_hash(p["address"], int(p["category"]), int(p["amount_wei"]))
             if not _oz_verify(leaf, p["proof"], root):
                 bad.append(p["address"])
         assert not bad, f"{len(bad)}/{len(d['proofs'])} proofs failed verification: {bad[:5]}"
@@ -300,14 +302,18 @@ class TestBinaryQualificationAndOwnerClub:
     def test_13_tampered_proof_fails(self, api):
         d = api.post(f"{API}/reward/tree/build").json()
         p = d["proofs"][0]
-        leaf = merkle.leaf_hash(p["address"], int(p["amount_wei"]) + 1, p["capReduce"])
+        leaf = merkle.leaf_hash(p["address"], int(p["category"]), int(p["amount_wei"]) + 1)
         assert not _oz_verify(leaf, p["proof"], d["root"]), "tampered amount still verified"
+        # tampering the CATEGORY must also break verification (claim-type isolation)
+        other_cat = (int(p["category"]) + 1) % 5
+        leaf2 = merkle.leaf_hash(p["address"], other_cat, int(p["amount_wei"]))
+        assert not _oz_verify(leaf2, p["proof"], d["root"]), "tampered category still verified"
 
     def test_14_user_proof_matches_snapshot_root(self, api):
         api.post(f"{API}/reward/tree/build")
         d = _bd(api, ROOT_ADDR)
         for p in d["proofs"]:
-            leaf = merkle.leaf_hash(p["address"], int(p["amount_wei"]), p["capReduce"])
+            leaf = merkle.leaf_hash(p["address"], int(p["category"]), int(p["amount_wei"]))
             assert _oz_verify(leaf, p["proof"], d["root"]), p["address"]
 
     # --- level income is bounded at exactly 15 levels (unit test on tree_engine) ---
@@ -445,3 +451,70 @@ class TestBinaryQualificationAndOwnerClub:
         others = [a for a in bd if a not in (r1, r2)]
         assert all(bd[a]["monthly_pool_usd"] == 0 for a in others)
         assert all(bd[a]["monthly_qualified"] is False for a in others)
+
+    # ---------------- NEW: per-category leaves (named on-chain claim functions) ----------------
+    def test_23_demo_root_has_distinct_category_leaves(self, api):
+        """DEMO_ROOT must expose up to 5 leaves, one per reward category, each amount
+        matching its breakdown field and summing to total_claimable_usd."""
+        assert api.post(f"{API}/reward/tree/build").status_code == 200
+        d = _bd(api, ROOT_ADDR)
+        proofs = d["proofs"]
+        assert 1 <= len(proofs) <= 5, proofs
+        cats = [int(p["category"]) for p in proofs]
+        assert len(cats) == len(set(cats)), f"duplicate categories: {cats}"
+        assert set(cats) <= {0, 1, 2, 3, 4}, cats
+        bd = d["breakdown"]
+        field_of = {0: "self_roi_usd", 1: "level_income_net_usd", 2: "daily_pool_usd",
+                    3: "weekly_pool_usd", 4: "monthly_pool_usd"}
+        wei = {int(p["category"]): int(p["amount_wei"]) for p in proofs}
+        for cat, field in field_of.items():
+            if bd[field] > 0:
+                assert cat in wei, f"missing leaf for category {cat} ({field})"
+                assert wei[cat] == pytest.approx(bd[field] * 1e18, rel=1e-9), (
+                    cat, field, wei[cat], bd[field])
+            else:
+                assert cat not in wei, f"zero {field} must not emit category {cat} leaf"
+        assert sum(wei.values()) == pytest.approx(bd["total_claimable_usd"] * 1e18, rel=1e-9)
+        # every category proof verifies against the published root
+        for p in proofs:
+            leaf = merkle.leaf_hash(p["address"], int(p["category"]), int(p["amount_wei"]))
+            assert _oz_verify(leaf, p["proof"], d["root"]), p
+
+    def test_24_all_categories_present_across_network(self, api):
+        """Across the whole snapshot every category 0..4 should appear at least once."""
+        d = api.post(f"{API}/reward/tree/build").json()
+        cats = {int(p["category"]) for p in d["proofs"]}
+        assert cats == {0, 1, 2, 3, 4}, f"categories present: {sorted(cats)}"
+        # per (address,category) uniqueness across the whole tree
+        keys = [(p["address"].lower(), int(p["category"])) for p in d["proofs"]]
+        assert len(keys) == len(set(keys)), "duplicate (address,category) leaves in tree"
+        assert all(int(p["amount_wei"]) > 0 for p in d["proofs"])
+
+    def test_25_python_root_matches_openzeppelin_js(self):
+        """Cross-chain compat: Python root must byte-match @openzeppelin/merkle-tree
+        StandardMerkleTree.of(values, ['address','uint8','uint256']).root."""
+        import json
+        import pathlib
+        import subprocess
+        node_modules = "/app/contracts/node_modules"
+        if not os.path.isdir(f"{node_modules}/@openzeppelin/merkle-tree"):
+            pytest.skip("@openzeppelin/merkle-tree not installed")
+        values = [
+            ["0x6cA29Dc3691F6a3B5bd0a7f7a2fCeD8F0BF15ffE", 0, "1234500000000000000"],
+            ["0x6cA29Dc3691F6a3B5bd0a7f7a2fCeD8F0BF15ffE", 4, "7000000000000000000"],
+            ["0x98600401aadDb432cAf9698170725900829a4488", 2, "5000000000000000000"],
+        ]
+        script = pathlib.Path("/app/contracts/.oz_root_check.js")
+        script.write_text(
+            "const {StandardMerkleTree} = require('@openzeppelin/merkle-tree');\n"
+            f"const values = {json.dumps(values)};\n"
+            "const t = StandardMerkleTree.of(values, ['address','uint8','uint256']);\n"
+            "console.log(t.root);\n"
+        )
+        out = subprocess.run(["node", str(script)], capture_output=True, text=True,
+                             cwd="/app/contracts", timeout=120)
+        script.unlink(missing_ok=True)
+        assert out.returncode == 0, out.stderr[:500]
+        js_root = out.stdout.strip().lower()
+        py_root = merkle.build([(a, c, int(w)) for a, c, w in values])["root"].lower()
+        assert py_root == js_root, f"python={py_root} js={js_root}"

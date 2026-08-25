@@ -84,8 +84,15 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     // delta since last claim, so re-publishing roots is safe (no replay, no per-epoch nonce).
     bytes32 public merkleRoot;
     uint256 public rewardEpoch;
-    mapping(address => uint256) public claimedReducingUsd;     // cap-reducing rewards (direct/level/monthly)
-    mapping(address => uint256) public claimedNonReducingUsd;  // non-reducing (daily/weekly self-ROI)
+
+    // Reward categories -> distinct named claim functions (BscScan labels).
+    uint8 public constant CAT_ROI = 0;
+    uint8 public constant CAT_LEVEL = 1;
+    uint8 public constant CAT_DAILY = 2;
+    uint8 public constant CAT_WEEKLY = 3;
+    uint8 public constant CAT_MONTHLY = 4;
+    // Cumulative USD already claimed per user per category.
+    mapping(address => mapping(uint8 => uint256)) public claimedByCategory;
 
     uint256 public totalRegistered;
     uint256 public totalActivated; // users who have staked at least once
@@ -102,7 +109,7 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     event SignerUpdated(address signer);
     event OwnerTierSet(address indexed user, bool ownerTier);
     event MerkleRootUpdated(bytes32 indexed root, uint256 indexed epoch);
-    event MerkleClaimed(address indexed user, uint256 usdtValue, uint256 ttnOut, bool capReduce, uint256 cumulativeUsd);
+    event RewardPoolClaimed(address indexed user, uint8 indexed category, uint256 usdtValue, uint256 ttnOut, uint256 cumulativeUsd);
 
     constructor(
         address _usdt,
@@ -246,41 +253,60 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     }
 
     // ------------------------------------------------ Merkle reward claim (backend = calculator only)
-    /// @notice Claim off-chain-computed rewards authorized by a Merkle root (no backend signing key).
-    /// @dev Paid as TTN bought LIVE from PancakeSwap with the claimable USD value at the CURRENT
-    ///      market price at claim time — so the user always gets TTN at today's live rate.
-    /// @param cumulativeUsd Your TOTAL lifetime USD entitlement of this type (from the published leaf).
-    /// @param capReduce true = cap-reducing bucket (direct/level/monthly); false = daily/weekly self-ROI.
-    /// @param minTtnOut Slippage guard for the live buy.
-    /// @param proof Merkle proof for leaf keccak256(bytes.concat(keccak256(abi.encode(user, cumulativeUsd, capReduce)))).
-    function claimMerkle(
+    // Each reward CATEGORY has its OWN named function so BscScan shows a clear label
+    // (Claim ROI / Claim Level Income / Claim Daily Pool / Claim Weekly Pool / Claim Monthly Pool).
+    // All are paid as TTN bought LIVE from PancakeSwap at the current market price. CLAIM never
+    // reduces the mining cap — the cap only reduces at SELL time by the actual USDT received.
+
+    /// @notice Claim your self-ROI rewards.
+    function claimRoi(uint256 cumulativeUsd, uint256 minTtnOut, uint256 deadline, bytes32[] calldata proof) external {
+        _claim(CAT_ROI, cumulativeUsd, minTtnOut, deadline, proof);
+    }
+
+    /// @notice Claim your Direct + Level income rewards.
+    function claimLevelIncome(uint256 cumulativeUsd, uint256 minTtnOut, uint256 deadline, bytes32[] calldata proof) external {
+        _claim(CAT_LEVEL, cumulativeUsd, minTtnOut, deadline, proof);
+    }
+
+    /// @notice Claim your Daily Working Pool reward.
+    function claimDailyPool(uint256 cumulativeUsd, uint256 minTtnOut, uint256 deadline, bytes32[] calldata proof) external {
+        _claim(CAT_DAILY, cumulativeUsd, minTtnOut, deadline, proof);
+    }
+
+    /// @notice Claim your Weekly Champion Pool reward.
+    function claimWeeklyPool(uint256 cumulativeUsd, uint256 minTtnOut, uint256 deadline, bytes32[] calldata proof) external {
+        _claim(CAT_WEEKLY, cumulativeUsd, minTtnOut, deadline, proof);
+    }
+
+    /// @notice Claim your Monthly Owner Club Pool reward.
+    function claimMonthlyPool(uint256 cumulativeUsd, uint256 minTtnOut, uint256 deadline, bytes32[] calldata proof) external {
+        _claim(CAT_MONTHLY, cumulativeUsd, minTtnOut, deadline, proof);
+    }
+
+    /// @dev Shared cumulative Merkle claim for a given reward category.
+    /// @param category 0=ROI 1=Level 2=Daily 3=Weekly 4=Monthly.
+    /// @param cumulativeUsd Your TOTAL lifetime USD entitlement of this category (from the published leaf).
+    /// @param proof Merkle proof for leaf keccak256(bytes.concat(keccak256(abi.encode(user, category, cumulativeUsd)))).
+    function _claim(
+        uint8 category,
         uint256 cumulativeUsd,
-        bool capReduce,
         uint256 minTtnOut,
         uint256 deadline,
         bytes32[] calldata proof
-    ) external nonReentrant {
+    ) internal nonReentrant {
         security.whenActive(msg.sender);
         require(block.timestamp <= deadline, "expired");
         require(merkleRoot != bytes32(0), "no root");
         require(address(router) != address(0), "router unset");
 
-        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, cumulativeUsd, capReduce))));
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(msg.sender, category, cumulativeUsd))));
         require(MerkleProof.verify(proof, merkleRoot, leaf), "bad proof");
 
-        // Cumulative accounting: pay only the unclaimed delta.
-        uint256 alreadyClaimed = capReduce ? claimedReducingUsd[msg.sender] : claimedNonReducingUsd[msg.sender];
+        // Cumulative accounting: pay only the unclaimed delta for THIS category.
+        uint256 alreadyClaimed = claimedByCategory[msg.sender][category];
         require(cumulativeUsd > alreadyClaimed, "nothing to claim");
         uint256 claimable = cumulativeUsd - alreadyClaimed;
-
-        // CLAIM never reduces the mining cap. Cap is only reduced at SELL time, by the actual
-        // USDT received (live price). The `capReduce` bool now only separates two cumulative
-        // reward streams so re-published roots pay the correct delta.
-        if (capReduce) {
-            claimedReducingUsd[msg.sender] = cumulativeUsd;
-        } else {
-            claimedNonReducingUsd[msg.sender] = cumulativeUsd;
-        }
+        claimedByCategory[msg.sender][category] = cumulativeUsd;
 
         // Buy TTN live from PancakeSwap with the claimable USD value at the CURRENT price.
         address[] memory path = new address[](2);
@@ -292,7 +318,7 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         uint256 bought = ttn.balanceOf(address(this)) - ttnBefore;
         ttn.safeTransfer(msg.sender, bought);
 
-        emit MerkleClaimed(msg.sender, claimable, bought, capReduce, cumulativeUsd);
+        emit RewardPoolClaimed(msg.sender, category, claimable, bought, cumulativeUsd);
     }
 
     // ------------------------------------------------ Permissionless sell (site-independent)

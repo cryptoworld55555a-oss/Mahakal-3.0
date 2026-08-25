@@ -35,10 +35,11 @@ def post_build(api, leaves):
 # ---------------- Merkle build ----------------
 class TestMerkleBuild:
     def test_multi_leaf_root_and_proofs(self, api):
+        # NEW category leaf model: (address, uint8 category, uint256 cumulativeUsd)
         leaves = [
-            {"address": A1, "cumulative_usd": 100.5, "cap_reduce": True},
-            {"address": A2, "cumulative_usd": 25, "cap_reduce": False},
-            {"address": A3, "cumulative_usd": 0, "cap_reduce": True},
+            {"address": A1, "cumulative_usd": 100.5, "category": 0},
+            {"address": A2, "cumulative_usd": 25, "category": 1},
+            {"address": A3, "cumulative_usd": 0, "category": 4},
         ]
         r = post_build(api, leaves)
         assert r.status_code == 200, r.text
@@ -50,16 +51,17 @@ class TestMerkleBuild:
             p = by_addr[leaf["address"].lower()]
             assert p["amount_wei"] == str(int(round(leaf["cumulative_usd"] * 1e18))), p
             assert isinstance(p["amount_wei"], str)
-            assert p["capReduce"] == leaf["cap_reduce"]
+            assert p["category"] == leaf["category"]
+            assert "capReduce" not in p
             assert isinstance(p["proof"], list) and len(p["proof"]) >= 1
             for h in p["proof"]:
                 assert HEX32.match(h), h
 
     def test_determinism(self, api):
         leaves = [
-            {"address": A1, "cumulative_usd": 1000, "cap_reduce": True},
-            {"address": A2, "cumulative_usd": 2000, "cap_reduce": True},
-            {"address": A4, "cumulative_usd": 3, "cap_reduce": False},
+            {"address": A1, "cumulative_usd": 1000, "category": 0},
+            {"address": A2, "cumulative_usd": 2000, "category": 0},
+            {"address": A4, "cumulative_usd": 3, "category": 1},
         ]
         roots = []
         proofs = []
@@ -73,8 +75,8 @@ class TestMerkleBuild:
 
     def test_order_independence(self, api):
         l1 = [
-            {"address": A1, "cumulative_usd": 10, "cap_reduce": True},
-            {"address": A2, "cumulative_usd": 20, "cap_reduce": True},
+            {"address": A1, "cumulative_usd": 10, "category": 0},
+            {"address": A2, "cumulative_usd": 20, "category": 0},
         ]
         r1 = post_build(api, l1)
         r2 = post_build(api, list(reversed(l1)))
@@ -82,7 +84,7 @@ class TestMerkleBuild:
         assert r1.json()["root"] == r2.json()["root"]
 
     def test_single_leaf_empty_proof(self, api):
-        r = post_build(api, [{"address": A1, "cumulative_usd": 42.75, "cap_reduce": True}])
+        r = post_build(api, [{"address": A1, "cumulative_usd": 42.75, "category": 2}])
         assert r.status_code == 200, r.text
         d = r.json()
         assert HEX32.match(d["root"])
@@ -93,12 +95,12 @@ class TestMerkleBuild:
         import sys
         sys.path.insert(0, "/app/backend")
         import merkle as m
-        assert d["root"] == "0x" + m.leaf_hash(A1, int(round(42.75 * 1e18)), True).hex()
+        assert d["root"] == "0x" + m.leaf_hash(A1, 2, int(round(42.75 * 1e18))).hex()
 
     def test_negative_cumulative_usd_rejected(self, api):
         r = post_build(api, [
-            {"address": A1, "cumulative_usd": -5, "cap_reduce": True},
-            {"address": A2, "cumulative_usd": 10, "cap_reduce": True},
+            {"address": A1, "cumulative_usd": -5, "category": 0},
+            {"address": A2, "cumulative_usd": 10, "category": 0},
         ])
         assert r.status_code == 422, f"expected 422 got {r.status_code}: {r.text[:300]}"
 
@@ -112,23 +114,44 @@ class TestMerkleBuild:
 
     def test_invalid_address_not_500(self, api):
         r = post_build(api, [
-            {"address": "notanaddress", "cumulative_usd": 1, "cap_reduce": True},
-            {"address": A2, "cumulative_usd": 2, "cap_reduce": True},
+            {"address": "notanaddress", "cumulative_usd": 1, "category": 0},
+            {"address": A2, "cumulative_usd": 2, "category": 0},
         ])
         assert r.status_code in (400, 422), f"expected 4xx got {r.status_code}: {r.text[:300]}"
 
-    def test_default_cap_reduce_true(self, api):
+    def test_default_category_is_roi(self, api):
         r = post_build(api, [{"address": A2, "cumulative_usd": 7}])
         assert r.status_code == 200, r.text
-        assert r.json()["proofs"][0]["capReduce"] is True
+        assert r.json()["proofs"][0]["category"] == 0
+
+    @pytest.mark.parametrize("bad_cat", [-1, 5, 255])
+    def test_category_out_of_range_rejected(self, api, bad_cat):
+        r = post_build(api, [{"address": A2, "cumulative_usd": 7, "category": bad_cat}])
+        assert r.status_code == 422, f"expected 422 got {r.status_code}: {r.text[:200]}"
+
+    def test_same_address_distinct_categories_allowed(self, api):
+        r = post_build(api, [
+            {"address": A1, "cumulative_usd": 10, "category": 0},
+            {"address": A1, "cumulative_usd": 20, "category": 1},
+        ])
+        assert r.status_code == 200, r.text
+        cats = sorted(p["category"] for p in r.json()["proofs"])
+        assert cats == [0, 1]
+
+    def test_duplicate_address_category_rejected(self, api):
+        r = post_build(api, [
+            {"address": A1, "cumulative_usd": 10, "category": 3},
+            {"address": A1, "cumulative_usd": 20, "category": 3},
+        ])
+        assert r.status_code == 422, f"expected 422 got {r.status_code}: {r.text[:200]}"
 
 
 # ---------------- Merkle latest ----------------
 class TestMerkleLatest:
     def test_latest_reflects_new_build(self, api):
         leaves = [
-            {"address": A3, "cumulative_usd": 111.111111, "cap_reduce": False},
-            {"address": A4, "cumulative_usd": 222, "cap_reduce": True},
+            {"address": A3, "cumulative_usd": 111.111111, "category": 1},
+            {"address": A4, "cumulative_usd": 222, "category": 0},
         ]
         b = post_build(api, leaves)
         assert b.status_code == 200, b.text
@@ -234,16 +257,16 @@ class TestMerkleEdge:
     def test_duplicate_address_leaves(self, api):
         """Same address twice -> currently accepted; flags double-claim risk."""
         r = post_build(api, [
-            {"address": A1, "cumulative_usd": 10, "cap_reduce": True},
-            {"address": A1, "cumulative_usd": 20, "cap_reduce": True},
+            {"address": A1, "cumulative_usd": 10, "category": 0},
+            {"address": A1, "cumulative_usd": 20, "category": 0},
         ])
         print("dup status", r.status_code, r.text[:200])
         assert r.status_code in (200, 400, 422)
 
     def test_large_amount(self, api):
         r = post_build(api, [
-            {"address": A1, "cumulative_usd": 1e9, "cap_reduce": True},
-            {"address": A2, "cumulative_usd": 0.000001, "cap_reduce": True},
+            {"address": A1, "cumulative_usd": 1e9, "category": 0},
+            {"address": A2, "cumulative_usd": 0.000001, "category": 0},
         ])
         assert r.status_code == 200, r.text
         amts = {p["address"].lower(): int(p["amount_wei"]) for p in r.json()["proofs"]}
@@ -251,7 +274,7 @@ class TestMerkleEdge:
         assert amts[A2.lower()] == 10 ** 12
 
     def test_many_leaves(self, api):
-        leaves = [{"address": "0x" + f"{i:040x}", "cumulative_usd": i + 1, "cap_reduce": i % 2 == 0}
+        leaves = [{"address": "0x" + f"{i:040x}", "cumulative_usd": i + 1, "category": i % 5}
                   for i in range(1, 51)]
         r = post_build(api, leaves)
         assert r.status_code == 200, r.text

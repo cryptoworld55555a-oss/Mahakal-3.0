@@ -1,0 +1,33 @@
+{
+  "summary": "Backend-only retest of the per-category Merkle claim model (named on-chain functions). Updated the 8 stale tests from the old (address, amount, capReduce) 2-stream leaf model to the new (address, uint8 category, uint256 cumulativeUsd) model, and added 7 new tests covering per-category leaf structure, category tamper resistance, category validation/duplicate rules, and an OZ JS vs Python root byte-match cross-check. Full suite: 179 passed, 0 failed (serial run: cd /app/backend && python -m pytest tests/ -n 0).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "pytest.ini default parallel mode (-n 2 --dist loadscope)", "issue": "Pre-existing test-isolation limitation: test_monthly_deduction_api.py and test_tree_engine_api.py both POST /api/reward/tree/build against the same shared DB, so parallel workers race (7 failures). Serial run (-n 0) is 179/179 green. Not a product defect; consider merging tree-build-dependent modules into one scope or gating builds."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_merkle_api.py",
+    "/app/backend/tests/test_tree_engine_api.py",
+    "/app/backend/tests/test_pool_qualification_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "merkle.leaf_hash/build and /api/reward/merkle/build correctly implement LEAF_TYPES ['address','uint8','uint256'] with per-(address,category) duplicate rejection (422) and category bounds 0-4 (422 for -1/5/255) — verified.",
+    "tree_engine.compute emits a leaf only when the category amount > 0, so users with zero pool income get fewer than 5 proofs; verified sum(category leaves) == total_claimable_usd and each leaf matches its breakdown field (self_roi_usd, level_income_net_usd, daily_pool_usd, weekly_pool_usd, monthly_pool_usd) within float rounding (breakdown is rounded to 6dp, leaves use raw floats — tests use rel=1e-9 rather than exact int equality).",
+    "/api/reward/merkle/build and /api/reward/tree/build remain unauthenticated when ADMIN_API_KEY is unset (as configured). Before mainnet, ADMIN_API_KEY should be mandatory for tree/build since it mutates owner_tier in db.users."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_merkle_api.py",
+    "/app/backend/tests/test_tree_engine_api.py",
+    "/app/backend/tests/test_pool_qualification_api.py"
+  ],
+  "success_rate": {"backend": "100% (179/179 serial)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Used existing POST /api/reward/tree/seed-demo 51-node demo network; temporary SIWE wallets cleaned up by existing fixtures.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run backend suite SERIALLY: cd /app/backend && python -m pytest tests/ -n 0 (179 tests). New/updated coverage: test_merkle_api.py (category field, default 0, out-of-range 422, same-address-different-category allowed, duplicate (addr,category) 422, single-leaf root == leaf_hash(addr,cat,wei)); test_tree_engine_api.py test_12/13/14 use leaf_hash(address, category, amount_wei) and test_13 also asserts a tampered CATEGORY fails verification; new test_23 (DEMO_ROOT per-category leaves + sum == total_claimable_usd + proof verification), test_24 (all 5 categories present across network, unique (addr,category)), test_25 (Python root byte-matches @openzeppelin/merkle-tree StandardMerkleTree.of(values,['address','uint8','uint256']) using node in /app/contracts; skips if node_modules missing). Regression model (stake-time level income, 10% deduction -> monthly pool, net=0.9*gross, Diamond monthly gate, AETHERA ladder, /api/pools estimates) still green.",
+  "rca_of_the_issue": "The 8 failures were purely stale test expectations: the leaf tuple changed from (address, cumulativeUsd, capReduce) to (address, category, cumulativeUsd) and leaf_hash arg order changed, so tests raised KeyError('capReduce') / hashed wrong arg order. Fixed the tests only; no product code was modified."
+}

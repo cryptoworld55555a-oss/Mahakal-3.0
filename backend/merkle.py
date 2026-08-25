@@ -5,16 +5,18 @@ owner/multisig) plus per-user proofs (used by users to claim their own leaf). Th
 holds NO key that can move funds — it only publishes a root.
 
 Leaf = keccak256(keccak256(abi.encode(types, values))), sorted-pair (commutative) hashing.
+Each leaf carries a reward CATEGORY so every claim type shows a distinct named function on
+BscScan (0=ROI, 1=Level, 2=Daily, 3=Weekly, 4=Monthly).
 """
 from typing import List, Tuple
 from eth_abi import encode as abi_encode
 from eth_utils import keccak, to_checksum_address
 
-LEAF_TYPES = ["address", "uint256", "bool"]  # (user, cumulativeUsdWei, capReduce)
+LEAF_TYPES = ["address", "uint8", "uint256"]  # (user, category, cumulativeUsdWei)
 
 
-def leaf_hash(address: str, amount_wei: int, cap_reduce: bool) -> bytes:
-    encoded = abi_encode(LEAF_TYPES, [to_checksum_address(address), int(amount_wei), bool(cap_reduce)])
+def leaf_hash(address: str, category: int, amount_wei: int) -> bytes:
+    encoded = abi_encode(LEAF_TYPES, [to_checksum_address(address), int(category), int(amount_wei)])
     return keccak(keccak(encoded))
 
 
@@ -33,18 +35,18 @@ def _build_tree(leaves: List[bytes]) -> List[bytes]:
     return tree
 
 
-def build(values: List[Tuple[str, int, bool]]) -> dict:
-    """values: list of (address, cumulative_usd_wei, cap_reduce).
-    Returns {root, proofs: [{address, amount, capReduce, proof:[hex]}]}"""
+def build(values: List[Tuple[str, int, int]]) -> dict:
+    """values: list of (address, category, cumulative_usd_wei).
+    Returns {root, proofs: [{address, category, amount_wei, proof:[hex]}]}"""
     if not values:
         return {"root": "0x" + "00" * 32, "proofs": []}
-    hashed = [(leaf_hash(a, amt, cr), (a, amt, cr)) for (a, amt, cr) in values]
+    hashed = [(leaf_hash(a, cat, amt), (a, cat, amt)) for (a, cat, amt) in values]
     hashed.sort(key=lambda x: x[0])  # ascending, matches OZ compareBytes
     leaves = [h for (h, _) in hashed]
     tree = _build_tree(leaves)
 
     proofs = []
-    for sorted_idx, (leaf, (addr, amt, cr)) in enumerate(hashed):
+    for sorted_idx, (leaf, (addr, cat, amt)) in enumerate(hashed):
         tree_index = len(tree) - 1 - sorted_idx
         proof = []
         idx = tree_index
@@ -54,8 +56,8 @@ def build(values: List[Tuple[str, int, bool]]) -> dict:
             idx = (idx - 1) // 2
         proofs.append({
             "address": to_checksum_address(addr),
+            "category": int(cat),
             "amount_wei": str(int(amt)),
-            "capReduce": bool(cr),
             "proof": proof,
         })
     return {"root": "0x" + tree[0].hex(), "proofs": proofs}

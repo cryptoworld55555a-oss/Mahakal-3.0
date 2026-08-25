@@ -547,7 +547,7 @@ async def reward_config():
 class MerkleLeaf(BaseModel):
     address: str
     cumulative_usd: float = Field(ge=0)   # total lifetime USD entitlement
-    cap_reduce: bool = True               # True=direct/level/monthly, False=daily/weekly
+    category: int = Field(0, ge=0, le=4)  # 0=ROI 1=Level 2=Daily 3=Weekly 4=Monthly
 
     @field_validator("address")
     @classmethod
@@ -565,15 +565,16 @@ class MerkleBuildRequest(BaseModel):
 async def reward_merkle_build(req: MerkleBuildRequest):
     """Backend-as-calculator: turn per-user cumulative USD rewards into a Merkle root + proofs.
     Owner/multisig posts `root` on-chain via TitanProtocol.setMerkleRoot; each user claims their
-    own leaf with `proof` via claimMerkle. Backend holds NO key that can move funds.
-    USD is scaled to 18-decimal wei to match the on-chain leaf encoding (address,uint256,bool)."""
+    own leaf with `proof` via the category's named function (claimRoi/claimLevelIncome/
+    claimDailyPool/claimWeeklyPool/claimMonthlyPool). Backend holds NO key that can move funds.
+    USD is scaled to 18-decimal wei to match the on-chain leaf encoding (address,uint8,uint256)."""
     seen = set()
     for l in req.leaves:
-        key = (l.address.lower(), l.cap_reduce)
+        key = (l.address.lower(), l.category)
         if key in seen:
-            raise HTTPException(status_code=422, detail=f"duplicate (address,cap_reduce) leaf: {l.address}")
+            raise HTTPException(status_code=422, detail=f"duplicate (address,category) leaf: {l.address}")
         seen.add(key)
-    values = [(l.address, int(round(l.cumulative_usd * 1e18)), l.cap_reduce) for l in req.leaves]
+    values = [(l.address, l.category, int(round(l.cumulative_usd * 1e18))) for l in req.leaves]
     result = merkle.build(values)
     await db.merkle_roots.insert_one({
         "root": result["root"],
