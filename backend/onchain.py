@@ -6,10 +6,16 @@ import time
 import json
 import urllib.request
 
-RPC = os.environ.get('BSC_RPC_URL', 'https://bsc-dataseed.binance.org')
 FACTORY = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73'                 # PancakeSwap V2 factory (BSC)
 USDT = '0x55d398326f99059fF775485246999027B3197955'                    # BSC-USD
-TOKEN = os.environ.get('TOKEN_ADDRESS', '0x0000000000000000000000000000000000000000')
+
+
+def _rpc_url():
+    return os.environ.get('BSC_RPC_URL', 'https://bsc-dataseed.binance.org')
+
+
+def _token_address():
+    return os.environ.get('TOKEN_ADDRESS', '0x0000000000000000000000000000000000000000')
 
 # Function selectors
 SEL_GET_PAIR = '0xe6a43905'      # getPair(address,address)
@@ -29,13 +35,14 @@ def _eth_call(to: str, data: str):
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": to, "data": data}, "latest"],
     }).encode()
-    req = urllib.request.Request(RPC, data=payload, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(_rpc_url(), data=payload, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=8) as r:
         res = json.loads(r.read().decode())
     return res.get("result", "0x")
 
 
 def _read_pool():
+    TOKEN = _token_address()
     if TOKEN.lower() == '0x0000000000000000000000000000000000000000':
         return {"live": False}
     # 1) pair address from factory
