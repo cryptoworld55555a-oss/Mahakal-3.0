@@ -470,3 +470,9 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - FIX: (1) server.py dashboard_stats now computes q_daily/q_weekly/q_monthly = real achievers count from reward_snapshots.latest (sum of daily_eligible/weekly_eligible/monthly_qualified). sharing guarded against div-by-zero. (2) Dashboard.jsx now fetches getPools(address) and passes to GlobalBusiness. (3) GlobalBusiness.jsx eligible is now PER-POOL from pools.daily/weekly/monthly.qualified (not me.is_active).
 - Verified preview: pool_meta qualified_ids=0, pools qualified=False for non-qualifying user. Frontend compiles 200.
 - PENDING DEPLOY: server.py + GlobalBusiness.jsx + Dashboard.jsx -> git pull + restart titan-backend + frontend yarn build.
+
+## ✅ POOLS PAGE $0.5 DISPLAY + MONTHLY 10% ACCRUAL (2026-06)
+- BUG: PoolsPage.jsx "Current Pool Balance" used usd() (0 decimals) -> $0.5 rounded to $1. Fixed line 43 + line 216 (modal) to usd2(). Backend was always correct ($0.5).
+- MONTHLY POOL FIX (user Rule Book): monthly pool accrues 10% of (daily + weekly) pools. Was showing $0 (only read stored monthly_pool_usdt which is never funded from activation). Now: dashboard_stats monthly = stored + 0.10*(daily+weekly); /pools monthly_bal = stored + 0.10*(daily_bal+weekly_bal). Removed total_deducted from /pools to avoid double-count (both endpoints now identical formula). For daily=$0.5+weekly=$0.5 -> monthly=$0.10. Verified preview both endpoints = 0.1.
+- OPEN QUESTION (asked user): whether Direct/Level income payouts should ALSO contribute 10% (or 5%) to monthly. Original explicit spec = monthly from daily+weekly ONLY. User's latest msg hinted direct reward 5% too but was speculative. Level/direct rewards not distributed yet (no snapshot), so premature. Currently monthly = 10% of daily+weekly only.
+- PENDING DEPLOY: PoolsPage.jsx + server.py -> git pull + restart titan-backend + frontend yarn build.

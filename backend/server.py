@@ -307,7 +307,8 @@ async def dashboard_stats():
 
     daily = round(stats.get("daily_pool_usdt", 0.0) or 0.0, 2)
     weekly = round(stats.get("weekly_pool_usdt", 0.0) or 0.0, 2)
-    monthly = round(stats.get("monthly_pool_usdt", 0.0) or 0.0, 2)
+    # Monthly pool accrues 10% of the daily + weekly pools (Rule Book: 10% deduction -> Monthly).
+    monthly = round((stats.get("monthly_pool_usdt", 0.0) or 0.0) + 0.10 * (daily + weekly), 2)
 
     # Real qualified counts from the latest reward snapshot (NOT total activated).
     snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
@@ -726,9 +727,8 @@ async def pools_for_user(address: str):
 
     daily_bal = round(float(stats.get("daily_pool_usdt", 0) or 0), 2)
     weekly_bal = round(float(stats.get("weekly_pool_usdt", 0) or 0), 2)
-    # Monthly pool = base pool + 10% deducted from everyone's Direct+Level+Daily+Weekly.
-    total_deducted = sum(float(b.get("deducted_to_monthly_usd", 0) or 0) for b in breakdown.values())
-    monthly_bal = round(float(stats.get("monthly_pool_usdt", 0) or 0) + total_deducted, 2)
+    # Monthly pool = base + 10% of the current daily + weekly pools (Rule Book: 10% deduction -> Monthly).
+    monthly_bal = round(float(stats.get("monthly_pool_usdt", 0) or 0) + 0.10 * (daily_bal + weekly_bal), 2)
 
     q_directs = int(bd.get("qualified_directs", 0))
     cap = float(bd.get("mining_cap_usd", 0))
