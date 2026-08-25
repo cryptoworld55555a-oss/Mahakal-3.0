@@ -19,9 +19,9 @@ apt-get update -y
 apt-get install -y nginx git curl gnupg python3-venv python3-pip ufw \
   certbot python3-certbot-nginx build-essential
 
-echo "==> [2/9] Node.js 20 + Yarn"
-if ! command -v node >/dev/null; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+echo "==> [2/9] Node.js 22 + Yarn"
+if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 22 ]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y nodejs
 fi
 corepack enable || npm install -g yarn
