@@ -63,11 +63,11 @@ TOKEN_SPEC = {
 # Seed values for the protocol ledger (Module 1 foundation - config driven).
 DEFAULT_STATS = {
     "_id": "protocol",
-    "creator_balance_usdt": 12500.0,
-    "daily_pool_usdt": 3200.0,
-    "weekly_pool_usdt": 8750.0,
-    "monthly_pool_usdt": 21400.0,
-    "community_fund_usdt": 45000.0,
+    "creator_balance_usdt": 0.0,
+    "daily_pool_usdt": 0.0,
+    "weekly_pool_usdt": 0.0,
+    "monthly_pool_usdt": 0.0,
+    "community_fund_usdt": 0.0,
     "total_supply_ttn": TOTAL_SUPPLY,
     "updated_at": datetime.now(timezone.utc).isoformat(),
 }
@@ -477,10 +477,11 @@ _HOLDERS_CACHE = _gen_holders()
 
 @api_router.get("/holders")
 async def holders(search: str = "", page: int = 1, page_size: int = Query(25, ge=1, le=100)):
-    data = _HOLDERS_CACHE
+    query = {}
     if search:
-        s = search.lower()
-        data = [h for h in data if s in h["address"].lower()]
+        query = {"address": {"$regex": search.lower().replace("0x", "")}}
+    users = await db.users.find(query).sort("total_deposited", -1).to_list(length=10000)
+    data = [{"address": u.get("address", ""), "ttn": round(float(u.get("total_deposited", 0) or 0), 4)} for u in users]
     total = len(data)
     pages = max(1, (total + page_size - 1) // page_size)
     page = max(1, min(page, pages))
