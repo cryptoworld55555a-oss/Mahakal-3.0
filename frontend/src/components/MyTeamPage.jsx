@@ -81,10 +81,13 @@ export default function MyTeamPage() {
   const { address, user } = useWallet();
   const [team, setTeam] = useState(null);
   const [tab, setTab] = useState("all");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (address) getTeam(address).then(setTeam).catch(() => {});
   }, [address]);
+
+  useEffect(() => { setPage(1); }, [tab]);
 
   const refLinks = useMemo(() => {
     const code = team?.referral_code || user?.uid || "";
@@ -110,6 +113,15 @@ export default function MyTeamPage() {
   const ls = t.level_summary || {};
   const acc = t.accounting || {};
   const q = t.qualification || { unlocked: 0, total: 15, levels: [] };
+
+  const PAGE_SIZE = 10;
+  const allMembers = t.members || [];
+  const filteredMembers = tab === "all" ? allMembers : allMembers.filter((m) => (m.side || "").toLowerCase() === tab);
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
+  const curPage = Math.min(page, totalPages);
+  const pageStart = (curPage - 1) * PAGE_SIZE;
+  const pageMembers = filteredMembers.slice(pageStart, pageStart + PAGE_SIZE);
+  const shortAddr = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
 
   return (
     <div data-testid="team-page" className="flex flex-col gap-4 px-4 pt-4 pb-4">
@@ -298,16 +310,66 @@ export default function MyTeamPage() {
           <span className="text-right">Stake</span>
           <span className="text-right">Status</span>
         </div>
-        <div className="border-t border-white/5 py-8 text-center text-xs text-white/45">
-          No team members yet. Share your referral link to start building your network.
-        </div>
+
+        {pageMembers.length === 0 ? (
+          <div className="border-t border-white/5 py-8 text-center text-xs text-white/45">
+            No team members yet. Share your referral link to start building your network.
+          </div>
+        ) : (
+          <div data-testid="team-member-list" className="divide-y divide-white/5">
+            {pageMembers.map((m) => (
+              <div
+                key={m.address}
+                data-testid={`team-member-${m.uid}`}
+                className="grid grid-cols-[1.4fr_0.7fr_0.5fr_0.8fr_0.9fr] items-center gap-1 py-2.5 text-xs"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-bold text-white">{m.uid}</div>
+                  <div className="truncate font-mono text-[10px] text-white/40">{shortAddr(m.address)}</div>
+                </div>
+                <span className="text-center">
+                  {m.side ? (
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold capitalize ${m.side === "left" ? "bg-[#0AA84F]/15 text-[#34D07A]" : "bg-[#D6C51E]/15 text-[#D6C51E]"}`}>
+                      {m.side}
+                    </span>
+                  ) : (
+                    <span className="text-white/30">—</span>
+                  )}
+                </span>
+                <span className="text-center text-white/60">{m.level || 1}</span>
+                <span className="text-right font-semibold text-white">${usd2(m.stake_usdt)}</span>
+                <span className="text-right">
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${m.active ? "bg-[#0AA84F]/15 text-[#34D07A]" : "bg-red-500/15 text-red-400"}`}>
+                    {m.active ? "Active" : "Inactive"}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center justify-between border-t border-white/5 pt-3 text-xs text-white/55">
-          <button className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#3C6B33]/50 text-white/40"><ChevronLeft size={14} /></button>
-          <span>Showing 0-0 of {t.total_members || 0}</span>
+          <button
+            data-testid="team-page-prev"
+            disabled={curPage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#3C6B33]/50 text-white/40 disabled:opacity-30 active:scale-95"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span>
+            Showing {filteredMembers.length === 0 ? 0 : pageStart + 1}-{pageStart + pageMembers.length} of {filteredMembers.length}
+          </span>
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#D6C51E]/50 bg-[#D6C51E]/12 font-bold text-[#D6C51E]">1</span>
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#3C6B33]/50 text-white/40"><ChevronRight size={14} /></button>
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#D6C51E]/50 bg-[#D6C51E]/12 font-bold text-[#D6C51E]">{curPage}</span>
+            <button
+              data-testid="team-page-next"
+              disabled={curPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#3C6B33]/50 text-white/40 disabled:opacity-30 active:scale-95"
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
         </div>
       </div>

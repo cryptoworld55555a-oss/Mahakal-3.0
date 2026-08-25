@@ -495,7 +495,8 @@ async def team(address: str):
                        "lapsed_usdt": bd.get("level_lapsed_usd", 0)},
         "qualification": {"unlocked": levels_unlocked, "tiers_unlocked": unlocked_count, "total": 15, "levels": levels},
         "members": [{"uid": u.get("uid"), "address": u["address"], "active": u.get("is_active", False),
-                     "stake_usdt": u.get("total_deposited", 0)} for u in direct_docs[:50]],
+                     "stake_usdt": u.get("total_deposited", 0), "side": u.get("binary_side"), "level": 1}
+                    for u in direct_docs[:50]],
         "total_members": len(direct_docs),
     }
 
