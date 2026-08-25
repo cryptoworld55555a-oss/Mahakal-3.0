@@ -1,7 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, QrCode, FlaskConical } from "lucide-react";
+import { X, Wallet, QrCode } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 import { hasWalletConnect } from "@/config";
 
@@ -17,12 +17,6 @@ const options = [
     label: "MetaMask / Browser",
     desc: "Use an injected wallet",
     icon: Wallet,
-  },
-  {
-    id: "demo",
-    label: "Demo Wallet (Testnet)",
-    desc: "Try the app instantly — no extension",
-    icon: FlaskConical,
   },
 ];
 
