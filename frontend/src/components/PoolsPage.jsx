@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clock, History, XCircle, CheckCircle2, Info, X } from "lucide-react";
 import { getDashboardStats, getPools } from "@/lib/api";
+import { claimCategory } from "@/lib/chain";
+import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import SectionLabel from "@/components/SectionLabel";
 
@@ -21,7 +23,7 @@ function ReqRow({ label, have, need, suffix = "" }) {
   );
 }
 
-function PoolCard({ p, onInfo, onHistory }) {
+function PoolCard({ p, onInfo, onHistory, onClaim, busy }) {
   const est = p.estimate != null ? p.estimate : (p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0);
   const qualified = p.reqs ? p.reqs.every((r) => r.ok) : (p.directsHave >= p.directsNeed && p.capHave >= p.capNeed);
   return (
@@ -84,10 +86,11 @@ function PoolCard({ p, onInfo, onHistory }) {
 
       <button
         data-testid={`pool-${p.key}-btn`}
-        disabled={!qualified}
+        disabled={!qualified || busy}
+        onClick={() => onClaim(p)}
         className="mt-3 h-11 w-full rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#D6C51E] text-sm font-bold text-black active:scale-[0.98] disabled:bg-none disabled:bg-[#3C6B33]/30 disabled:text-white/50"
       >
-        {qualified ? "Claim Share" : "Not qualified"}
+        {busy ? "Claiming…" : qualified ? "Claim Share" : "Not qualified"}
       </button>
 
       <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
@@ -121,11 +124,27 @@ export default function PoolsPage() {
   const { me, address } = useWallet();
   const [stats, setStats] = useState(null);
   const [live, setLive] = useState(null); // real per-user pool data
+  const [claiming, setClaiming] = useState(""); // pool key being claimed
   const [modal, setModal] = useState(null); // {type:'info'|'history', pool}
   useEffect(() => { getDashboardStats().then(setStats).catch(() => {}); }, []);
   useEffect(() => {
     if (address) getPools(address).then(setLive).catch(() => setLive(null));
   }, [address]);
+
+  const doClaim = async (pool) => {
+    if (pool.category == null) return;
+    setClaiming(pool.key);
+    try {
+      const hash = await claimCategory(address, pool.category);
+      toast.success(`${pool.title} claimed · TTN in your wallet`, { description: `Tx: ${hash.slice(0, 10)}…` });
+      const fresh = await getPools(address);
+      setLive(fresh);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Claim failed");
+    } finally {
+      setClaiming("");
+    }
+  };
 
   const day = Math.floor(Date.now() / 86400000) % 1000;
   const fmtReq = (r) =>
@@ -162,11 +181,19 @@ export default function PoolsPage() {
         ] },
       ];
 
+  const POOL_CAT = { daily: 2, weekly: 3, monthly: 4 };
   return (
     <div data-testid="pools-page" className="flex flex-col gap-4 px-4 pt-4 pb-4">
       <SectionLabel center>Reward Pools</SectionLabel>
       {pools.map((p) => (
-        <PoolCard key={p.key} p={p} onInfo={setModal ? (pool) => setModal({ type: "info", pool }) : undefined} onHistory={(pool) => setModal({ type: "history", pool })} />
+        <PoolCard
+          key={p.key}
+          p={{ ...p, category: POOL_CAT[p.key] }}
+          busy={claiming === p.key}
+          onClaim={doClaim}
+          onInfo={(pool) => setModal({ type: "info", pool })}
+          onHistory={(pool) => setModal({ type: "history", pool })}
+        />
       ))}
 
       {modal && createPortal(

@@ -18,10 +18,10 @@ export const COIN_HERO_URL =
   "https://static.prod-images.emergentagent.com/jobs/3867ed87-dcc2-48ad-adde-0ee1b9542d8a/images/ecf39d18a731b51c7772de8a4415d0fa1e9f62e39ce341b922f43cf8c7c6b1ea.jpeg";
 
 export const ONCHAIN = {
-  protocol: "0x53F278bfCa7acED4c41734FF78840d52fdFD1a6f",
-  token: "0xd3123574F7C204c73c982972ea46b1086Bbe1079",
-  usdt: "0x2e64bc6A398A48F7767830d4F7Db875AeD1E2bF1",
-  security: "0x314DCAb3Acd0dC3b4721B02123609192FF38BEa7",
+  protocol: "0xc78f03C989Ae4820cCeE94E4A97D66b9605F426D",
+  token: "0xC7ed8B984A0b445EcC1f8531CAAb1eB41E5326dB",
+  usdt: "0x05D9cBf1509A8643972Ac6d136F648686F5aF679",
+  security: "0x1C61F12D72b4092DFf6E36F58496bda0fe1f2e24",
   community: "0x073DB912A0c86d5903A3CD6571de0adC441D5849",
   router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
   creator: "",

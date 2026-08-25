@@ -318,3 +318,16 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Frontend chain.js: CLAIM_FN map {0:claimRoi,1:claimLevelIncome,2:claimDailyPool,3:claimWeeklyPool,4:claimMonthlyPool}; claimAllRewards loops per-category proofs; new claimCategory(address,category) for per-pool buttons; MiningPage toast lists claimed pool labels.
 - Verified: Python Merkle root == @openzeppelin/merkle-tree root (byte-identical) for uint8-category leaves -> on-chain proofs will verify. Backend suite 179 passed (0 failed), iteration_17.
 - NOT YET LIVE ON BSCSCAN: the currently DEPLOYED testnet contract still has old claimMerkle. Labels appear only AFTER redeploying the new TitanProtocol (testnet demo or mainnet) + updating config addresses + re-verifying on BscScan.
+
+## [2026-08-25] Per-pool claim buttons + testnet redeploy (named-claim demo LIVE)
+- PoolsPage: each pool card's "Claim Share" button now calls claimCategory(address, category) — daily=2->claimDailyPool, weekly=3->claimWeeklyPool, monthly=4->claimMonthlyPool. Busy state + toast with tx hash; refreshes /api/pools after claim.
+- Confirmed monthly 10% funding to user: 10% deducted from Direct+Level+Daily+Weekly (NOT self-ROI) -> monthly Owner pool. User gets net 90%. Matches AETHERA slide 10.
+- TESTNET REDEPLOY (new named-claim TitanProtocol) on BSC Testnet, all 5 named claims executed live:
+  - PROTOCOL=0xc78f03C989Ae4820cCeE94E4A97D66b9605F426D
+  - TOKEN=0xC7ed8B984A0b445EcC1f8531CAAb1eB41E5326dB
+  - USDT=0x05D9cBf1509A8643972Ac6d136F648686F5aF679
+  - SECURITY=0x1C61F12D72b4092DFf6E36F58496bda0fe1f2e24
+  - claimRoi tx 0x97527fb3..., claimLevelIncome 0x479cc9db..., claimDailyPool 0xa46c59f3..., claimWeeklyPool 0xe3dfa70e..., claimMonthlyPool 0x5493e65c...
+  - Deploy scripts: contracts/scripts/named-claims-testnet.js (deploy+5 claims), retry-claims.js (retry with delays for transient testnet RPC reverts).
+- Frontend config.js ONCHAIN.* + frontend/.env REACT_APP_TOKEN_ADDRESS/REACT_APP_MAIN_PROTOCOL_ADDRESS updated to new addresses; frontend restarted. Landing Protocol Ingredients shows new TTN/Mining Engine/USDT.
+- PENDING for human-readable labels on BscScan: contract VERIFICATION (needs BSCSCAN_API_KEY). Until verified, BscScan shows raw method selectors instead of "Claim Daily Pool" etc. Functions executed correctly regardless.
