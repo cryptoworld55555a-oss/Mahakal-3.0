@@ -97,6 +97,7 @@ class VerifyRequest(BaseModel):
     signature: str
     message: str
     ref: Optional[str] = None   # sponsor uid (TTN1xxxxx) or sponsor address
+    leg: Optional[str] = None   # binary leg: "left" or "right"
 
 
 class ActivateRequest(BaseModel):
@@ -131,6 +132,20 @@ async def _resolve_sponsor(ref: Optional[str], self_addr: str) -> Optional[str]:
     if sp["address"].lower() == self_addr.lower():
         return None  # cannot sponsor self
     return sp["address"].lower()
+
+
+async def _place_binary(sponsor_addr: str, leg: str):
+    """Binary placement with spillover: walk DOWN the chosen leg from the sponsor
+    until an empty slot is found. Returns (binary_parent, binary_side)."""
+    if leg not in ("left", "right"):
+        leg = "left"
+    current = sponsor_addr
+    for _ in range(5000):  # safety bound against cycles
+        child = await db.users.find_one({"binary_parent": current, "binary_side": leg})
+        if not child:
+            return current, leg
+        current = child["address"].lower()
+    return sponsor_addr, leg
 
 
 def _public_user(doc: dict) -> dict:
@@ -223,6 +238,11 @@ async def verify(body: VerifyRequest):
     user = User(address=addr, uid=uid, last_seen=now)
     doc = user.model_dump()
     doc["sponsor"] = sponsor_addr
+    # Binary tree placement (left/right) with spillover under the sponsor's chosen leg.
+    if sponsor_addr is not None:
+        bp, side = await _place_binary(sponsor_addr, body.leg or "left")
+        doc["binary_parent"] = bp
+        doc["binary_side"] = side
     await db.users.insert_one(doc)
     return _public_user(doc)
 

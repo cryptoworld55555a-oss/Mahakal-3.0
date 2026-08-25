@@ -20,8 +20,11 @@ export function WalletProvider({ children }) {
 
   // Restore a previous session (wallet-based, no JWT — just re-read the user).
   useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("ref");
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    const leg = params.get("leg");
     if (ref) localStorage.setItem("titan_ref", ref);
+    if (leg) localStorage.setItem("titan_leg", leg);
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return;
     getUser(saved)
@@ -37,13 +40,15 @@ export function WalletProvider({ children }) {
     const { nonce } = await getNonce(addr);
     const message = buildSiweMessage(addr, nonce);
     const signature = await signer.signMessage(message);
-    const ref = new URLSearchParams(window.location.search).get("ref")
-      || localStorage.getItem("titan_ref") || undefined;
-    const verifiedUser = await verifySignature({ address: addr, signature, message, ref });
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref") || localStorage.getItem("titan_ref") || undefined;
+    const leg = params.get("leg") || localStorage.getItem("titan_leg") || undefined;
+    const verifiedUser = await verifySignature({ address: addr, signature, message, ref, leg });
     setAddress(addr);
     setUser(verifiedUser);
     localStorage.setItem(STORAGE_KEY, addr);
     localStorage.removeItem("titan_ref");
+    localStorage.removeItem("titan_leg");
     toast.success(`Connected · ${verifiedUser.uid}`);
     return verifiedUser;
   }, []);

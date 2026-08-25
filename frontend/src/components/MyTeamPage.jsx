@@ -86,9 +86,11 @@ export default function MyTeamPage() {
     if (address) getTeam(address).then(setTeam).catch(() => {});
   }, [address]);
 
-  const refLink = useMemo(() => {
+  const refLinks = useMemo(() => {
     const code = team?.referral_code || user?.uid || "";
-    return code ? `${window.location.origin}/?ref=${code}` : "";
+    if (!code) return { left: "", right: "" };
+    const base = `${window.location.origin}/?ref=${code}`;
+    return { left: `${base}&leg=left`, right: `${base}&leg=right` };
   }, [team, user]);
 
   if (!address) {
@@ -133,22 +135,44 @@ export default function MyTeamPage() {
         </button>
       </div>
 
-      {/* Referral link */}
+      {/* Referral links - Left & Right legs */}
       <div data-testid="team-referral" className="card-glow p-4">
-        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[#34D07A]">
-          <Share2 size={14} /> Your Referral Link
+        <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[#34D07A]">
+          <Share2 size={14} /> Your Referral Links
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 truncate rounded-lg border border-[#3C6B33]/50 bg-black/30 px-3 py-2 font-mono text-xs text-white/70">
-            {refLink || "—"}
+
+        {/* Left leg */}
+        <div className="mb-2">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[#34D07A]">Left Leg</div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 truncate rounded-lg border border-[#3C6B33]/50 bg-black/30 px-3 py-2 font-mono text-xs text-white/70">
+              {refLinks.left || "—"}
+            </div>
+            <button
+              data-testid="team-referral-copy-left"
+              onClick={() => copy(refLinks.left, "Left referral link copied")}
+              className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-gradient-to-r from-[#0AA84F] to-[#34D07A] px-3 text-xs font-bold text-black active:scale-95"
+            >
+              <Copy size={14} /> Copy
+            </button>
           </div>
-          <button
-            data-testid="team-referral-copy"
-            onClick={() => copy(refLink, "Referral link copied")}
-            className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-gradient-to-r from-[#0AA84F] to-[#D6C51E] px-3 text-xs font-bold text-black active:scale-95"
-          >
-            <Copy size={14} /> Copy
-          </button>
+        </div>
+
+        {/* Right leg */}
+        <div>
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[#D6C51E]">Right Leg</div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 truncate rounded-lg border border-[#3C6B33]/50 bg-black/30 px-3 py-2 font-mono text-xs text-white/70">
+              {refLinks.right || "—"}
+            </div>
+            <button
+              data-testid="team-referral-copy-right"
+              onClick={() => copy(refLinks.right, "Right referral link copied")}
+              className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-gradient-to-r from-[#D6C51E] to-[#0AA84F] px-3 text-xs font-bold text-black active:scale-95"
+            >
+              <Copy size={14} /> Copy
+            </button>
+          </div>
         </div>
       </div>
 
