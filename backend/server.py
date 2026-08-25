@@ -212,6 +212,12 @@ async def verify(body: VerifyRequest):
 
     uid = await _next_uid()
     sponsor_addr = await _resolve_sponsor(body.ref, addr)
+    if sponsor_addr is None:
+        # Only the very first user (root/admin) may join without a referrer.
+        # Everyone else MUST register through a valid referral link.
+        total = await db.users.count_documents({})
+        if total > 0:
+            raise HTTPException(status_code=400, detail="A valid referral link is required to join. Please use a sponsor's referral link.")
     user = User(address=addr, uid=uid, last_seen=now)
     doc = user.model_dump()
     doc["sponsor"] = sponsor_addr
