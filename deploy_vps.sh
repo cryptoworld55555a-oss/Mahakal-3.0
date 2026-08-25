@@ -61,7 +61,7 @@ EOF
 cd "$APP_DIR/backend"
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
-./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install -r requirements.txt --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
 
 echo "==> [6/9] Backend systemd service"
 cat > /etc/systemd/system/titan-backend.service <<EOF
