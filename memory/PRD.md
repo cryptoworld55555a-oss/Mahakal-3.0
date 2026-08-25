@@ -462,3 +462,11 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - LOGO: user sent green/gold TITAN coin. Applied then REVERTED per user choice 1b (keep website "pehle jaisa"). config.js LOGO_URL/COIN_HERO_URL + index.html restored to original. Kept ttn-logo-200.png & ttn-logo-256.png in public/ ONLY for user to download for BscScan/TrustWallet TOKEN logo submission (does not affect site look).
 - TOKEN LOGO (PancakeSwap/MetaMask): NOT from website - must submit to (A) BscScan token info update, (B) Trust Wallet assets GitHub PR (256x256 <100KB), (C) CoinGecko/CMC. Download logos: preview /ttn-logo-200.png and /ttn-logo-256.png. User doing BscScan "A" first (needs no code/push).
 - PENDING DEPLOY TO VPS: server.py + GlobalBusiness.jsx + onchain.py. Needs: git pull + restart titan-backend + frontend yarn build. Then RESET wrong $10 protocol_stats values on VPS mongo.
+
+## ✅ DASHBOARD POOL QUALIFICATION FIX (2026-06)
+- BUG (user video): Dashboard "Global Business" pool cards showed "Eligible" (green) + "Qualified IDs: 1" for EVERY active user, even when Pools page correctly showed "Not qualified".
+- ROOT CAUSE: GlobalBusiness.jsx used eligible=Boolean(me.is_active) (wrong) + backend dashboard_stats used q_daily=max(1,int(total_activated)) (wrong). Pools page /pools/{address} was ALWAYS correct (reads daily_eligible/weekly_eligible/monthly_qualified from reward_snapshots.latest breakdown computed by tree_engine).
+- CORRECT RULES (tree_engine.py, confirmed by user + video): daily = >=1 qualified direct (own stake>=$50) AND cap>=$100 ; weekly = >=5 qualified directs($50+) AND cap>=$200 ; monthly = full binary (Diamond + 10 directs + $2000 direct biz + 25 IDs/leg + $5000/leg).
+- FIX: (1) server.py dashboard_stats now computes q_daily/q_weekly/q_monthly = real achievers count from reward_snapshots.latest (sum of daily_eligible/weekly_eligible/monthly_qualified). sharing guarded against div-by-zero. (2) Dashboard.jsx now fetches getPools(address) and passes to GlobalBusiness. (3) GlobalBusiness.jsx eligible is now PER-POOL from pools.daily/weekly/monthly.qualified (not me.is_active).
+- Verified preview: pool_meta qualified_ids=0, pools qualified=False for non-qualifying user. Frontend compiles 200.
+- PENDING DEPLOY: server.py + GlobalBusiness.jsx + Dashboard.jsx -> git pull + restart titan-backend + frontend yarn build.

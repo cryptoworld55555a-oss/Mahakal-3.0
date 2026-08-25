@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { getDashboardStats, getMe } from "@/lib/api";
+import { getDashboardStats, getMe, getPools } from "@/lib/api";
 import { useWallet } from "@/context/WalletContext";
 import ActivateCard from "@/components/ActivateCard";
 import WelcomeStatus from "@/components/WelcomeStatus";
@@ -14,6 +14,7 @@ export default function Dashboard() {
   const { isConnected, address, user } = useWallet();
   const [stats, setStats] = useState(null);
   const [me, setMe] = useState(null);
+  const [pools, setPools] = useState(null);
   const [error, setError] = useState(false);
 
   const load = useCallback(() => {
@@ -25,8 +26,10 @@ export default function Dashboard() {
       .catch(() => setError(true));
     if (address) {
       getMe(address).then(setMe).catch(() => setMe(null));
+      getPools(address).then(setPools).catch(() => setPools(null));
     } else {
       setMe(null);
+      setPools(null);
     }
   }, [address]);
 
@@ -50,7 +53,7 @@ export default function Dashboard() {
 
       <WelcomeStatus stats={stats} me={me} />
       <ReferralCard me={me} />
-      <GlobalBusiness stats={stats} me={me} />
+      <GlobalBusiness stats={stats} me={me} pools={pools} />
       <MyBusiness me={me} />
       <TeamReward me={me} />
       <RecentActivity me={me} />

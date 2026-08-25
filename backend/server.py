@@ -308,17 +308,24 @@ async def dashboard_stats():
     daily = round(stats.get("daily_pool_usdt", 0.0) or 0.0, 2)
     weekly = round(stats.get("weekly_pool_usdt", 0.0) or 0.0, 2)
     monthly = round(stats.get("monthly_pool_usdt", 0.0) or 0.0, 2)
-    q_daily = max(1, int(total_activated))
-    q_weekly = max(1, int(total_activated * 0.5) or 1)
-    q_monthly = max(1, int(total_activated * 0.3) or 1)
+
+    # Real qualified counts from the latest reward snapshot (NOT total activated).
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    breakdown = snap.get("breakdown") or {}
+    q_daily = sum(1 for b in breakdown.values() if b.get("daily_eligible"))
+    q_weekly = sum(1 for b in breakdown.values() if b.get("weekly_eligible"))
+    q_monthly = sum(1 for b in breakdown.values() if b.get("monthly_qualified"))
+
+    def _share(bal, n):
+        return round(bal / n, 2) if n > 0 else round(bal, 2)
 
     return {
         "creator_balance_usdt": round(stats.get("creator_balance_usdt", 0.0) or 0.0, 2),
         "pools": {"daily_usdt": daily, "weekly_usdt": weekly, "monthly_usdt": monthly},
         "pool_meta": {
-            "daily": {"qualified_ids": q_daily, "sharing_usdt": round(daily / q_daily, 2)},
-            "weekly": {"qualified_ids": q_weekly, "sharing_usdt": round(weekly / q_weekly, 2)},
-            "monthly": {"qualified_ids": q_monthly, "sharing_usdt": round(monthly / q_monthly, 2)},
+            "daily": {"qualified_ids": q_daily, "sharing_usdt": _share(daily, q_daily)},
+            "weekly": {"qualified_ids": q_weekly, "sharing_usdt": _share(weekly, q_weekly)},
+            "monthly": {"qualified_ids": q_monthly, "sharing_usdt": _share(monthly, q_monthly)},
         },
         "community_fund_usdt": round(stats.get("community_fund_usdt", 0.0) or 0.0, 2),
         "level_income_pool_usdt": round(stats.get("level_income_pool_usdt", 0.0) or 0.0, 2),

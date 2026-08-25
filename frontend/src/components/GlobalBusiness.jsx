@@ -48,9 +48,11 @@ function PoolCard({ testid, icon: Icon, title, amount, qualified, sharing, reset
   );
 }
 
-export default function GlobalBusiness({ stats, me }) {
-  const eligible = Boolean(me?.is_active);
+export default function GlobalBusiness({ stats, me, pools }) {
   const meta = stats?.pool_meta || {};
+  const dailyElig = Boolean(pools?.daily?.qualified);
+  const weeklyElig = Boolean(pools?.weekly?.qualified);
+  const monthlyElig = Boolean(pools?.monthly?.qualified);
   return (
     <div>
       <SectionLabel center>Global Business</SectionLabel>
@@ -58,17 +60,17 @@ export default function GlobalBusiness({ stats, me }) {
         <PoolCard
           testid="gb-daily-pool" icon={CalendarDays} title="Daily Pool" full
           amount={stats?.pools?.daily_usdt} qualified={meta.daily?.qualified_ids} sharing={meta.daily?.sharing_usdt}
-          reset={stats?.resets?.daily} resetTestid="gb-daily-countdown" eligible={eligible}
+          reset={stats?.resets?.daily} resetTestid="gb-daily-countdown" eligible={dailyElig}
         />
         <PoolCard
           testid="gb-weekly-pool" icon={Trophy} title="Weekly Pool" full
           amount={stats?.pools?.weekly_usdt} qualified={meta.weekly?.qualified_ids} sharing={meta.weekly?.sharing_usdt}
-          reset={stats?.resets?.weekly} resetTestid="gb-weekly-countdown" eligible={eligible}
+          reset={stats?.resets?.weekly} resetTestid="gb-weekly-countdown" eligible={weeklyElig}
         />
         <PoolCard
           testid="gb-monthly-pool" icon={Gift} title="Monthly Pool" full
           amount={stats?.pools?.monthly_usdt} qualified={meta.monthly?.qualified_ids} sharing={meta.monthly?.sharing_usdt}
-          reset={stats?.resets?.monthly} resetTestid="gb-monthly-countdown" eligible={eligible}
+          reset={stats?.resets?.monthly} resetTestid="gb-monthly-countdown" eligible={monthlyElig}
         />
       </div>
     </div>
