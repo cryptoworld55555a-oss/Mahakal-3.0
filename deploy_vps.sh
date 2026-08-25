@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # ============ EDIT THESE 2 LINES BEFORE RUNNING ============
-REPO_URL="https://github.com/YOUR_USERNAME/YOUR_REPO.git"   # <-- apna GitHub repo URL daalo
+REPO_URL="https://github.com/cryptoworld55555a-oss/Mahakal-2.0.git"   # aapka GitHub repo
 DOMAIN="titandefi.in"
 # ===========================================================
 
@@ -85,7 +85,7 @@ echo "==> [7/9] Frontend .env + build"
 cat > "$APP_DIR/frontend/.env" <<EOF
 REACT_APP_BACKEND_URL=https://$DOMAIN
 REACT_APP_CHAIN_ID=56
-REACT_APP_WC_PROJECT_ID=
+REACT_APP_WC_PROJECT_ID=5e7af3babfd0f3ec5f639c3d67bc4be7
 REACT_APP_TOKEN_ADDRESS=0x3430D0DAd0BFedC83335A6c85f917DCc7BB344Bc
 REACT_APP_MAIN_PROTOCOL_ADDRESS=0x5A483E367f818202A5fb4E273E93d4cE5dE4EEFD
 EOF

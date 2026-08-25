@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Shield, Users, Coins, Trophy, RefreshCw, Play, Pause, Search,
-  Ban, CheckCircle2, UploadCloud, Crown, Copy, Loader2, Database,
+  Ban, CheckCircle2, UploadCloud, Crown, Copy, Loader2,
 } from "lucide-react";
 import {
-  adminOverview, adminUsers, buildRewardTree, seedDemoNetwork,
+  adminOverview, adminUsers, buildRewardTree,
 } from "@/lib/api";
 import {
   blockUserOnChain, unblockUserOnChain, pauseOnChain, unpauseOnChain,
@@ -66,7 +66,6 @@ export default function AdminPanel() {
     const d = await run("build", buildRewardTree, "Reward engine ran");
     if (d) { setNewRoot(d.root); await loadOverview(); await loadUsers(q); }
   };
-  const doSeed = async () => { await run("seed", seedDemoNetwork, "Demo network seeded"); await loadOverview(); await loadUsers(q); };
   const doPostRoot = async () => {
     const root = newRoot || ov?.latest_root;
     if (!root) return toast.error("No root to post. Run engine first.");
@@ -187,10 +186,6 @@ export default function AdminPanel() {
               <button data-testid="admin-resume-btn" onClick={() => doPause(true)} disabled={busy === "pause"}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#0AA84F]/40 bg-[#0AA84F]/15 px-4 py-2.5 text-sm font-semibold text-[#7CF3A0] disabled:opacity-60">
                 <Play size={15} /> Resume Protocol
-              </button>
-              <button data-testid="admin-seed-btn" onClick={doSeed} disabled={busy === "seed"}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white/70 disabled:opacity-60">
-                <Database size={14} /> Seed Demo Network (dev)
               </button>
             </div>
           </div>

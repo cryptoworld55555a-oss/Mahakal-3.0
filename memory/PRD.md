@@ -425,3 +425,10 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - Added backend/onchain.py (pure urllib JSON-RPC, no web3 dep) -> reads REAL PancakeSwap TTN/USDT pool. dashboard_stats now returns pool_live + real price/liquidity (or not-live). Removed fake $10 price + $4000 LIVE pool. Landing shows "OPENING SOON" until seedLiquidity.
 - Domain: titandefi.in (user owns). Needs VPS/server for self-hosting.
 - PENDING before launch: (1) seedLiquidity NOT done yet (user will do at launch: 20000 TTN + 200 USDT, price $0.01, LP->dead burn). (2) Other demo stats still present (daily/weekly/monthly pool $3200/$8750/$21400 in DEFAULT_STATS - clean before launch). (3) self-host on VPS + point titandefi.in. (4) transferOwnership(Safe) + token renounce after setup. (5) BscScan verify contracts.
+
+## ✅ PRODUCTION HARDENING + SELF-HOST PREP (2026-06)
+- Removed "Demo Wallet (Testnet)" option from WalletModal.jsx. Removed admin "Seed Demo Network" button + doSeed + seedDemoNetwork import + Database icon from AdminPanel.jsx.
+- WalletConnect QR ENABLED: REACT_APP_WC_PROJECT_ID=5e7af3babfd0f3ec5f639c3d67bc4be7 (Reown). wallet.js uses chain 56 + bsc-dataseed. Reminder: add titandefi.in to Reown dashboard allowed domains.
+- Wiped all demo data (536 users, 854 roots, etc). protocol_stats zeroed. holders endpoint now DB-based (real users). DEFAULT_STATS zeroed.
+- SELF-HOST: /app/deploy_vps.sh (Ubuntu 24.04 one-shot: node20, python venv, MongoDB 8.0, nginx, certbot SSL, systemd titan-backend, yarn build) + /app/DEPLOY_VPS.md guide. Server: Hostinger KVM2 187.127.98.41 (root, Ubuntu 24.04, 8GB). Domain: titandefi.in. GitHub repo: https://github.com/cryptoworld55555a-oss/Mahakal-2.0.git
+- Backend Merkle root posting still MANUAL (via Remix/script) - backend auto-post w/ rootPoster key is a future task.

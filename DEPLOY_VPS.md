@@ -21,8 +21,7 @@ ssh root@187.127.98.41
 ## STEP 3 — Deploy script chalao
 ```
 cd /root
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/deploy_vps.sh -o deploy_vps.sh
-nano deploy_vps.sh      # sabse upar REPO_URL apne repo ka daalo, save (Ctrl+O, Enter, Ctrl+X)
+curl -fsSL https://raw.githubusercontent.com/cryptoworld55555a-oss/Mahakal-2.0/main/deploy_vps.sh -o deploy_vps.sh
 bash deploy_vps.sh
 ```
 Script sab install karega: Node, Python, MongoDB, Nginx, SSL, build, services.
