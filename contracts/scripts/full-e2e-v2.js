@@ -41,13 +41,15 @@ async function main() {
   await (await protocol.setRouter(ROUTER)).wait();
   await (await community.setProtocol(P)).wait();
   await (await security.setApprovedContract(P, true)).wait();
-  console.log("[2] Wiring done (setToken/setRouter/community/security). token linked:", (await protocol.ttn()) === T ? "✓" : "✗");
+  await (await protocol.setRootPoster(d.address)).wait();
+  console.log("[2] Wiring done (setToken/setRouter/community/security/rootPoster). token linked:", (await protocol.ttn()) === T ? "✓" : "✗");
 
-  // ===== 4) seedLiquidity from the CONTRACT's own TTN (1000 TTN : 10000 USDT => $10) =====
+  // ===== 4) seedLiquidity: REAL launch config -> 20,000 TTN + 200 USDT => $0.01/TTN, LP BURNED =====
   await (await usdt.faucet(E(50000))).wait();
   await (await usdt.approve(P, ethers.MaxUint256)).wait();
   const protoTtnBefore = await ttn.balanceOf(P);
-  await (await protocol.seedLiquidity(E(1000), E(10000), d.address, dl())).wait();
+  const DEAD = "0x000000000000000000000000000000000000dEaD";
+  await (await protocol.seedLiquidity(E(20000), E(200), DEAD, dl())).wait();
   await sleep(4000);
   const router = new ethers.Contract(ROUTER, ROUTER_ABI, d);
   const priceTTN = async () => Number(ethers.formatEther((await router.getAmountsOut(E(1), [T, U]))[1]));
@@ -59,10 +61,11 @@ async function main() {
 
   // ===== 5) REGISTER + STAKE (real reserve swap) =====
   await (await protocol.register()).wait();
-  await (await protocol.stake(E(100), 0, dl())).wait();
+  await (await protocol.stake(E(20), 0, dl())).wait();
   await sleep(5000);
   const cap0 = (await protocol.accountOf(d.address))[3];
-  console.log("[4] register + stake $100 -> mining cap:", F(cap0), cap0 === E(200) ? "✓ (200%)" : "✗");
+  console.log("[4] register + stake $20 -> mining cap:", F(cap0), cap0 === E(40) ? "✓ (200%)" : "✗",
+    "| price now $" + (await priceTTN()).toFixed(5));
 
   // ===== 6) POST CATEGORY MERKLE ROOT =====
   const CAT = { ROI: 0, LEVEL: 1, DAILY: 2, WEEKLY: 3, MONTHLY: 4 };
@@ -71,7 +74,7 @@ async function main() {
   const tree = StandardMerkleTree.of(leaves, ["address", "uint8", "uint256"]);
   await (await protocol.setMerkleRoot(tree.root)).wait();
   await sleep(4000);
-  console.log("[5] Merkle root posted for 5 categories.");
+  console.log("[5] Merkle root posted for 5 categories (via rootPoster operator wallet).");
 
   // ===== 7) CLAIM EACH NAMED CATEGORY (cap must stay UNCHANGED) =====
   const fns = {

@@ -406,3 +406,10 @@ All mechanisms verified on the NEW direct-mint contract (gasPrice 10gwei added t
 - [6] All 5 named claims (claimRoi/Level/Daily/Weekly/Monthly) buy TTN live, cap UNCHANGED ✓
 - [7] sell -> cap reduced by exact USDT received ✓
 Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/sell ABIs unchanged; only Protocol constructor + setToken/seedLiquidity are deploy-time).
+
+## ✅ FINAL (2026-06) — rootPoster role + launch config locked + full testnet E2E
+- Added TitanProtocol.rootPoster + setRootPoster(onlyOwner) + setMerkleRoot now callable by owner OR rootPoster (low-power daily reward posting, no fund access). Hardhat: 14/14 pass.
+- Mainnet addrs verified on-chain: USDT 0x55d398..7955, PancakeV2 router 0x10ED43..024E, Safe 0xac70aB96..dEB1f (valid Safe proxy).
+- LAUNCH CONFIG LOCKED (user, $200 budget, AETHERA mirror): price $0.01/TTN, seed 20,000 TTN + 200 USDT, reserve 180,000, LP burned to dead. Early stakes kept small.
+- Live BSC Testnet E2E at exact launch config PASSED (scripts/full-e2e-v2.js): direct mint, seedLiquidity->$0.0100, stake$20->cap$40, rootPoster posts root, all 5 named claims (cap unchanged), sell (cap reduced by exact USDT).
+- Re-flattened all 4 remix-flat/*.sol + rewrote REMIX_DEPLOY_GUIDE.md with final numbers + rootPoster step + burn. READY for Remix mainnet deploy.

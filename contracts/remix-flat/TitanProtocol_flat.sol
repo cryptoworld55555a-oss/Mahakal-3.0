@@ -1804,6 +1804,7 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     IPancakeRouter public router;
     ITitanSecurity public security;
     address public signer;         // backend authorization signer
+    address public rootPoster;     // low-power operator allowed to post reward Merkle roots (no fund access)
     address public devWallet;      // Platform Development Fund
     address public communityFund;
 
@@ -1868,6 +1869,7 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
     event WalletsUpdated(address devWallet, address communityFund);
     event RouterUpdated(address router);
     event SignerUpdated(address signer);
+    event RootPosterUpdated(address rootPoster);
     event OwnerTierSet(address indexed user, bool ownerTier);
     event MerkleRootUpdated(bytes32 indexed root, uint256 indexed epoch);
     event RewardPoolClaimed(address indexed user, uint8 indexed category, uint256 usdtValue, uint256 ttnOut, uint256 cumulativeUsd);
@@ -1955,10 +1957,20 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
         emit OwnerTierSet(user, ownerTier);
     }
 
+    /// @notice Set the low-power operator wallet allowed to post reward Merkle roots.
+    /// @dev This wallet can ONLY publish roots (enabling users to claim their pre-computed rewards).
+    ///      It cannot move funds, change config, or drain anything. Lets the backend auto-post daily
+    ///      roots WITHOUT needing a multisig approval each time, while ownership stays with the Safe.
+    function setRootPoster(address _rootPoster) external onlyOwner {
+        rootPoster = _rootPoster;
+        emit RootPosterUpdated(_rootPoster);
+    }
+
     /// @notice Publish the reward Merkle root computed off-chain by the backend engine.
-    /// @dev Backend has NO power to move funds — it only posts a root of user->cumulativeUsd leaves.
-    ///      Owner/multisig posts the root; users then claim their own delta with a proof.
-    function setMerkleRoot(bytes32 root) external onlyOwner {
+    /// @dev Poster has NO power to move funds — it only posts a root of user->cumulativeUsd leaves.
+    ///      Callable by the owner (Safe multisig) OR the designated rootPoster operator wallet.
+    function setMerkleRoot(bytes32 root) external {
+        require(msg.sender == owner() || msg.sender == rootPoster, "not authorized");
         merkleRoot = root;
         rewardEpoch += 1;
         emit MerkleRootUpdated(root, rewardEpoch);

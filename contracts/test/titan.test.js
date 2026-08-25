@@ -265,4 +265,16 @@ describe("TITAN Protocol + Security", function () {
     expect(await ttn2.balanceOf(await router2.getAddress())).to.equal(E(20000));
     expect(await ttn2.balanceOf(owner.address)).to.equal(0n);
   });
+
+  it("rootPoster operator can post Merkle roots without being owner (owner keeps control)", async () => {
+    // Non-owner, non-rootPoster cannot post.
+    await expect(protocol.connect(user).setMerkleRoot(ethers.ZeroHash)).to.be.revertedWith("not authorized");
+    // Owner designates a low-power operator wallet.
+    await protocol.setRootPoster(backend.address);
+    // Operator can now post roots (no ownership, no fund access).
+    await expect(protocol.connect(backend).setMerkleRoot(ethers.id("root1"))).to.not.be.reverted;
+    expect(await protocol.merkleRoot()).to.equal(ethers.id("root1"));
+    // But operator still cannot touch owner-only admin (e.g. setRootPoster).
+    await expect(protocol.connect(backend).setRootPoster(user.address)).to.be.reverted;
+  });
 });
