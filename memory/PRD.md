@@ -369,3 +369,10 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Mechanism confirmed to user: TTN only leaves the contract when USD/USDT value comes in (claim buys TTN at live price); no one (incl company) can pull it free. MAINNET plan: mint/transfer 99% supply into Protocol at deploy; Protocol -> Safe multisig (NOT renounced, needed for setMerkleRoot); Token renounced; Security kept. Drain-proof + trustless.
 - TODO mainnet: bake supply-into-contract into deploy flow (no new token needed; TitanToken already a verified BEP-20).
 - Note: stake-time strict level income, 10% monthly deduction, per-category named claims, all contracts verified — all live on testnet.
+
+## ⭐ MAINNET HARD REQUIREMENT (user, 2026-08-25) — SUPPLY DIRECT ON CONTRACT
+- On MAINNET, the FULL TTN supply MUST be assigned DIRECTLY to the distribution/Protocol contract AT DEPLOY TIME (mint-to-contract in constructor OR minted-to-contract within the same deploy tx). It must NEVER first land in the deployer EOA and then be transferred.
+- REASON (user): a visible "wallet -> contract" transfer on BscScan looks panicky. It must look like the supply was ALWAYS on the contract and distributes FROM there (like SST / AETHERA).
+- So BscScan holders on day 1 should show: #1 = Protocol/distribution contract holding ~99% (verified + contract icon), #2 = PancakeSwap V2 LP pair. No initial wallet->contract transfer in history.
+- Implementation note: modify TitanToken constructor / deploy script so _mint targets the distribution contract (or deploy token with supply -> immediately used to seed the contract atomically). Protocol -> Safe multisig (NOT renounced, needs setMerkleRoot). Token renounced. Security kept.
+- The testnet demo used a post-deploy transfer only because contracts were already deployed — DO NOT do that on mainnet.
