@@ -56,9 +56,10 @@ export default function Landing() {
 
   useEffect(() => { getDashboardStats().then(setStats).catch(() => {}); }, []);
 
-  const price = stats?.price_usd || 10;
-  const spark = (stats?.price_spark || []).map((v, i) => ({ i, v }));
-  const liq = stats?.liquidity || { usdt: 2000, ttn: 200, value_usd: 4000, pair: "TTN/USDT · PancakeSwap V2" };
+  const poolLive = !!stats?.pool_live;
+  const price = stats?.price_usd;
+  const spark = [];
+  const liq = stats?.liquidity || { usdt: 0, ttn: 0, value_usd: 0, pair: "TTN/USDT · PancakeSwap V2" };
 
   const ppt = () => toast("PPT coming soon — stay tuned!");
   const socials = [
@@ -160,8 +161,8 @@ export default function Landing() {
               <img src={LOGO_URL} alt="TTN" className="h-full w-full object-cover" />
             </div>
             <div className="min-w-0">
-              <div className="text-xl font-extrabold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>${usd2(price)}</div>
-              <div className="truncate text-[11px]"><span className="font-bold text-[#34D07A]">1 TTN</span> <span className="text-white/45">· PancakeSwap V2 router</span></div>
+              <div className="text-xl font-extrabold text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{poolLive && price ? (price < 0.01 ? `$${price.toFixed(6)}` : `$${usd2(price)}`) : "—"}</div>
+              <div className="truncate text-[11px]"><span className="font-bold text-[#34D07A]">1 TTN</span> <span className="text-white/45">· {poolLive ? "PancakeSwap V2" : "Opens at launch"}</span></div>
             </div>
             <div className="ml-auto h-10 w-24">
               <ResponsiveContainer width="100%" height="100%">
@@ -180,9 +181,15 @@ export default function Landing() {
             <span className="flex items-center gap-2 text-sm font-bold text-white">
               <span className="text-lg">🥞</span> PancakeSwap Liquidity Pool
             </span>
-            <span className="flex items-center gap-1 rounded-full border border-[#0AA84F]/45 bg-[#0AA84F]/15 px-2 py-0.5 text-[10px] font-bold text-[#34D07A]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#34D07A]" /> LIVE
-            </span>
+            {poolLive ? (
+              <span className="flex items-center gap-1 rounded-full border border-[#0AA84F]/45 bg-[#0AA84F]/15 px-2 py-0.5 text-[10px] font-bold text-[#34D07A]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#34D07A]" /> LIVE
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full border border-[#D6C51E]/45 bg-[#D6C51E]/15 px-2 py-0.5 text-[10px] font-bold text-[#D6C51E]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#D6C51E]" /> OPENING SOON
+              </span>
+            )}
           </div>
           <div className="flex items-center justify-between border-b border-white/5 py-2.5">
             <span className="text-xs text-white/50">USDT Balance</span>

@@ -18,6 +18,7 @@ from eth_account.messages import encode_defunct
 import reward_engine as rw
 import merkle
 import tree_engine
+import onchain
 import re as _re
 from pydantic import field_validator
 
@@ -284,6 +285,15 @@ async def dashboard_stats():
     total_users = await db.users.count_documents({})
     total_activated = await db.users.count_documents({"is_active": True})
 
+    # Real on-chain PancakeSwap pool state (falls back to "not live" before seeding).
+    pool = onchain.get_pool_state()
+    if pool.get("live"):
+        live_price = pool["price_usd"]
+        liquidity = {"usdt": pool["usdt"], "ttn": pool["ttn"], "value_usd": pool["value_usd"], "pair": pool["pair"]}
+    else:
+        live_price = None
+        liquidity = {"usdt": 0.0, "ttn": 0.0, "value_usd": 0.0, "pair": "TTN/USDT · PancakeSwap V2"}
+
     daily = round(stats["daily_pool_usdt"], 2)
     weekly = round(stats["weekly_pool_usdt"], 2)
     monthly = round(stats["monthly_pool_usdt"], 2)
@@ -304,14 +314,9 @@ async def dashboard_stats():
         "total_users": total_users,
         "total_activated_users": total_activated,
         "min_activation_usdt": MIN_ACTIVATION_USDT,
-        "price_usd": TOKEN_PRICE_USD,
-        "price_spark": PRICE_SPARK,
-        "liquidity": {
-            "usdt": 2000.0,
-            "ttn": round(2000.0 / TOKEN_PRICE_USD, 2),
-            "value_usd": 4000.0,
-            "pair": "TTN/USDT · PancakeSwap V2",
-        },
+        "price_usd": live_price,
+        "pool_live": bool(pool.get("live")),
+        "liquidity": liquidity,
         "resets": _pool_resets(),
         "token": TOKEN_SPEC,
     }

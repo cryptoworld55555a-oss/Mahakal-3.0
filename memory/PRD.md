@@ -413,3 +413,15 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - LAUNCH CONFIG LOCKED (user, $200 budget, AETHERA mirror): price $0.01/TTN, seed 20,000 TTN + 200 USDT, reserve 180,000, LP burned to dead. Early stakes kept small.
 - Live BSC Testnet E2E at exact launch config PASSED (scripts/full-e2e-v2.js): direct mint, seedLiquidity->$0.0100, stake$20->cap$40, rootPoster posts root, all 5 named claims (cap unchanged), sell (cap reduced by exact USDT).
 - Re-flattened all 4 remix-flat/*.sol + rewrote REMIX_DEPLOY_GUIDE.md with final numbers + rootPoster step + burn. READY for Remix mainnet deploy.
+
+## ✅ MAINNET DEPLOYED + FRONTEND MAINNET-READY (2026-06)
+- BSC MAINNET contracts (deployed by user via Remix, verified on-chain by main agent):
+  - TitanSecurityAdmin: 0x833D8A87ae0314aFb48c1b6C80C286708B537a12 (admin = 0xe3501895..7965)
+  - CommunityFund: 0x1aB174e3B96615726007115759DD30716759F408
+  - TitanProtocol: 0x5A483E367f818202A5fb4E273E93d4cE5dE4EEFD (owner=0xCb64..e0cd)
+  - TitanToken (TTN): 0x3430D0DAd0BFedC83335A6c85f917DCc7BB344Bc -> 200,000 TTN ALL on Protocol, deployer wallet=0 ✓ (direct mint verified)
+- Wiring DONE on-chain: setToken ✓ setRouter ✓ setRootPoster(0xCb64) ✓ community.setProtocol ✓. setApprovedContract SKIPPED (not required - protocol uses whenActive only).
+- Frontend .env + config.js + backend .env switched to MAINNET (chain 56, real addresses, bsc-dataseed RPC, bscscan explorer).
+- Added backend/onchain.py (pure urllib JSON-RPC, no web3 dep) -> reads REAL PancakeSwap TTN/USDT pool. dashboard_stats now returns pool_live + real price/liquidity (or not-live). Removed fake $10 price + $4000 LIVE pool. Landing shows "OPENING SOON" until seedLiquidity.
+- Domain: titandefi.in (user owns). Needs VPS/server for self-hosting.
+- PENDING before launch: (1) seedLiquidity NOT done yet (user will do at launch: 20000 TTN + 200 USDT, price $0.01, LP->dead burn). (2) Other demo stats still present (daily/weekly/monthly pool $3200/$8750/$21400 in DEFAULT_STATS - clean before launch). (3) self-host on VPS + point titandefi.in. (4) transferOwnership(Safe) + token renounce after setup. (5) BscScan verify contracts.
