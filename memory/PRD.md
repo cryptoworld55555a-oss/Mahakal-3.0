@@ -342,3 +342,12 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
   - CommunityFund 0xdc9F7c6b33B2F1f73c09D66F99f11D70De9C0f08 (no args)
 - Named claim/stake/sell functions now render as readable labels on BscScan (Stake, Sell, Claim Roi, Claim Level Income, Claim Daily/Weekly/Monthly Pool).
 - Same key + flow reused at mainnet: `npx hardhat verify --network bscMainnet <addr> <args...>`.
+
+## [2026-08-25] Backend root posting + on-chain E2E on VERIFIED testnet contract
+- Admin panel flow confirmed wired: "Run Engine" -> POST /reward/tree/build (sets root), "Post Root On-chain" -> adminChain.postMerkleRootOnChain -> protocol.setMerkleRoot. Owner signs via MetaMask.
+- Proved end-to-end on verified TitanProtocol 0xc78f03C989Ae4820cCeE94E4A97D66b9605F426D:
+  - Posted BACKEND-generated root 0x0d3615...ef5a (193 leaves) on-chain via setMerkleRoot -> rewardEpoch=2. (script scripts/post-and-sell.js)
+  - sell(1 TTN): got $10.19 USDT at live price, miningCap 200 -> 189.81 (reduced by EXACTLY the USDT received). Confirms "cap reduces only on sell, by actual USDT". Claims never reduced cap.
+  - GOTCHA: public testnet RPC returns STALE reads right after a tx; always re-query fresh (the immediate post-tx accountOf showed 200, a fresh read showed 189.81).
+- Full on-chain function set proven working on the verified contract: register, stake, setMerkleRoot, 5 named claims, sell. renew covered by hardhat unit test (needs 200-day elapse, not doable on live testnet).
+- REMAINING: in-browser MetaMask click-through E2E is the user's action (needs their wallet + testnet BNB/USDT). Frontend chain.js is wired to these exact verified-contract functions. For REAL users: they register via app -> owner runs engine + posts root -> user claims their category proofs.
