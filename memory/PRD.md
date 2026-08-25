@@ -362,3 +362,10 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - Created /app/memory/METAMASK_TESTNET_GUIDE.md (network add, tBNB faucet, USDT mint, connect, register->stake->claim->sell).
 - Confirmed lapse mechanism: unqualified upline's level income goes to level_lapsed, NOT claimable by anyone (no roll-up) -> stays in reserve = admin/protocol profit. Matches user intent.
 - Carry-forward: intentionally NOT implemented (user said leave it; informational only).
+
+## [2026-08-25] Supply-on-contract (SST/AETHERA trust look) — testnet demo
+- Moved 198,903 TTN from deployer EOA -> verified TitanProtocol contract 0xc78f03C989Ae4820cCeE94E4A97D66b9605F426D (tx 0x6f42aeda...). Deployer now holds only 100 TTN.
+- BscScan TTN holders now: #1 Protocol contract ~99.45% (verified blue-tick + contract icon), #2 PancakeSwap V2 LP pair, #3 deployer 100 TTN. Matches SST/AETHERA look.
+- Mechanism confirmed to user: TTN only leaves the contract when USD/USDT value comes in (claim buys TTN at live price); no one (incl company) can pull it free. MAINNET plan: mint/transfer 99% supply into Protocol at deploy; Protocol -> Safe multisig (NOT renounced, needed for setMerkleRoot); Token renounced; Security kept. Drain-proof + trustless.
+- TODO mainnet: bake supply-into-contract into deploy flow (no new token needed; TitanToken already a verified BEP-20).
+- Note: stake-time strict level income, 10% monthly deduction, per-category named claims, all contracts verified — all live on testnet.
