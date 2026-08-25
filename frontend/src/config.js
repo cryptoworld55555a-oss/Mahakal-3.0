@@ -11,9 +11,11 @@ export const config = {
 
 export const hasWalletConnect = Boolean(config.wcProjectId);
 
-export const LOGO_URL = "/ttn-logo.png";
+export const LOGO_URL =
+  "https://static.prod-images.emergentagent.com/jobs/3867ed87-dcc2-48ad-adde-0ee1b9542d8a/images/bf3bd36c8c7e77626a97dc38583d9203f3522b5c4ab8b8cef43a2f818b20147e.jpeg";
 
-export const COIN_HERO_URL = "/ttn-logo.png";
+export const COIN_HERO_URL =
+  "https://static.prod-images.emergentagent.com/jobs/3867ed87-dcc2-48ad-adde-0ee1b9542d8a/images/ecf39d18a731b51c7772de8a4415d0fa1e9f62e39ce341b922f43cf8c7c6b1ea.jpeg";
 
 export const ONCHAIN = {
   protocol: "0x5A483E367f818202A5fb4E273E93d4cE5dE4EEFD",

@@ -68,6 +68,8 @@ DEFAULT_STATS = {
     "weekly_pool_usdt": 0.0,
     "monthly_pool_usdt": 0.0,
     "community_fund_usdt": 0.0,
+    "level_income_pool_usdt": 0.0,
+    "ttn_stake_usdt": 0.0,
     "total_supply_ttn": TOTAL_SUPPLY,
     "updated_at": datetime.now(timezone.utc).isoformat(),
 }
@@ -263,15 +265,18 @@ async def activate_id(body: ActivateRequest):
     )
 
     amt = body.amount
+    # Activation split (Rule Book 5.0) — always sums to 100%:
+    #   60% TTN buy + auto-stake | 5% dev | 5% daily pool | 5% weekly pool | 25% level income
+    #   Monthly pool is NOT funded from activation — it comes from 10% deduction on daily+weekly payouts.
     await db.protocol_stats.update_one(
         {"_id": "protocol"},
         {
             "$inc": {
-                "creator_balance_usdt": round(amt * 0.20, 2),
-                "daily_pool_usdt": round(amt * 0.15, 2),
-                "weekly_pool_usdt": round(amt * 0.15, 2),
-                "monthly_pool_usdt": round(amt * 0.15, 2),
-                "community_fund_usdt": round(amt * 0.15, 2),
+                "ttn_stake_usdt": round(amt * 0.60, 6),          # 60% TTN buy + auto-stake
+                "creator_balance_usdt": round(amt * 0.05, 6),    # 5% developer/creator
+                "daily_pool_usdt": round(amt * 0.05, 6),         # 5% daily pool
+                "weekly_pool_usdt": round(amt * 0.05, 6),        # 5% weekly pool
+                "level_income_pool_usdt": round(amt * 0.25, 6),  # 25% level income allocation
             },
             "$set": {"updated_at": now},
         },
@@ -300,23 +305,25 @@ async def dashboard_stats():
         live_price = None
         liquidity = {"usdt": 0.0, "ttn": 0.0, "value_usd": 0.0, "pair": "TTN/USDT · PancakeSwap V2"}
 
-    daily = round(stats["daily_pool_usdt"], 2)
-    weekly = round(stats["weekly_pool_usdt"], 2)
-    monthly = round(stats["monthly_pool_usdt"], 2)
+    daily = round(stats.get("daily_pool_usdt", 0.0) or 0.0, 2)
+    weekly = round(stats.get("weekly_pool_usdt", 0.0) or 0.0, 2)
+    monthly = round(stats.get("monthly_pool_usdt", 0.0) or 0.0, 2)
     q_daily = max(1, int(total_activated))
     q_weekly = max(1, int(total_activated * 0.5) or 1)
     q_monthly = max(1, int(total_activated * 0.3) or 1)
 
     return {
-        "creator_balance_usdt": round(stats["creator_balance_usdt"], 2),
+        "creator_balance_usdt": round(stats.get("creator_balance_usdt", 0.0) or 0.0, 2),
         "pools": {"daily_usdt": daily, "weekly_usdt": weekly, "monthly_usdt": monthly},
         "pool_meta": {
             "daily": {"qualified_ids": q_daily, "sharing_usdt": round(daily / q_daily, 2)},
             "weekly": {"qualified_ids": q_weekly, "sharing_usdt": round(weekly / q_weekly, 2)},
             "monthly": {"qualified_ids": q_monthly, "sharing_usdt": round(monthly / q_monthly, 2)},
         },
-        "community_fund_usdt": round(stats["community_fund_usdt"], 2),
-        "total_supply_ttn": stats["total_supply_ttn"],
+        "community_fund_usdt": round(stats.get("community_fund_usdt", 0.0) or 0.0, 2),
+        "level_income_pool_usdt": round(stats.get("level_income_pool_usdt", 0.0) or 0.0, 2),
+        "ttn_stake_usdt": round(stats.get("ttn_stake_usdt", 0.0) or 0.0, 2),
+        "total_supply_ttn": stats.get("total_supply_ttn", TOTAL_SUPPLY),
         "total_users": total_users,
         "total_activated_users": total_activated,
         "min_activation_usdt": MIN_ACTIVATION_USDT,
