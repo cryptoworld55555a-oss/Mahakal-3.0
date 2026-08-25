@@ -4,6 +4,7 @@ import SectionLabel from "@/components/SectionLabel";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
 import { getAccount, claimAllRewards, renewOnChain, sellOnChain } from "@/lib/chain";
+import { notifySuccess } from "@/lib/notify";
 import { getRewardUser } from "@/lib/api";
 
 const usd4 = (n) => Number(n || 0).toFixed(4);
@@ -48,7 +49,7 @@ function SellCard({ address, onSold }) {
     setBusy(true);
     try {
       await sellOnChain(v, address);
-      toast.success(`Sold ${v} TTN → USDT in your wallet`);
+      notifySuccess("Sell Successful", `${v} TTN → USDT received in your wallet`);
       setAmt("");
       onSold?.();
     } catch (e) {
@@ -108,7 +109,7 @@ export default function MiningPage() {
     try {
       const hashes = await claimAllRewards(address);
       const labels = hashes.map((h) => h.label).join(", ");
-      toast.success(`Claimed ${hashes.length} reward${hashes.length > 1 ? "s" : ""}: ${labels} · TTN in your wallet`);
+      notifySuccess("Claim Successful", `${labels} · TTN in your wallet`);
       await load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Claim failed");
@@ -119,7 +120,7 @@ export default function MiningPage() {
     setBusy("renew");
     try {
       await renewOnChain(address);
-      toast.success("ID renewed for another 200 days ($10)");
+      notifySuccess("Renewal Successful", "ID renewed for another 200 days ($10)");
       await load();
     } catch (e) {
       toast.error(e?.shortMessage || e?.message || "Renew failed");

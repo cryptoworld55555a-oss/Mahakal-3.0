@@ -351,3 +351,14 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
   - GOTCHA: public testnet RPC returns STALE reads right after a tx; always re-query fresh (the immediate post-tx accountOf showed 200, a fresh read showed 189.81).
 - Full on-chain function set proven working on the verified contract: register, stake, setMerkleRoot, 5 named claims, sell. renew covered by hardhat unit test (needs 200-day elapse, not doable on live testnet).
 - REMAINING: in-browser MetaMask click-through E2E is the user's action (needs their wallet + testnet BNB/USDT). Frontend chain.js is wired to these exact verified-contract functions. For REAL users: they register via app -> owner runs engine + posts root -> user claims their category proofs.
+
+## [2026-08-25] Classy success popups + MetaMask test guide + MockUSDT verified
+- New /app/frontend/src/lib/notify.jsx -> notifySuccess(title, description): branded green/gold toast (sonner toast.custom + CheckCircle2). Wired at ALL success points:
+  - ActivateCard: "Registration Successful" (on register) + "Stake Successful"
+  - MiningPage: "Claim Successful" (all rewards), "Sell Successful", "Renewal Successful"
+  - PoolsPage: per-pool "<Pool> Claim Successful" (Daily/Weekly/Monthly)
+- Verified: frontend compiles clean, app loads (Pools smoke screenshot OK). Actual toast fires on real on-chain action (MetaMask).
+- MockUSDT 0x05D9cBf1509A8643972Ac6d136F648686F5aF679 VERIFIED on testnet -> users self-mint test USDT via faucet() on BscScan Write tab.
+- Created /app/memory/METAMASK_TESTNET_GUIDE.md (network add, tBNB faucet, USDT mint, connect, register->stake->claim->sell).
+- Confirmed lapse mechanism: unqualified upline's level income goes to level_lapsed, NOT claimable by anyone (no roll-up) -> stays in reserve = admin/protocol profit. Matches user intent.
+- Carry-forward: intentionally NOT implemented (user said leave it; informational only).

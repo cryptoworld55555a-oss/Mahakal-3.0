@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Clock, History, XCircle, CheckCircle2, Info, X } from "lucide-react";
 import { getDashboardStats, getPools } from "@/lib/api";
 import { claimCategory } from "@/lib/chain";
+import { notifySuccess } from "@/lib/notify";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import SectionLabel from "@/components/SectionLabel";
@@ -136,7 +137,7 @@ export default function PoolsPage() {
     setClaiming(pool.key);
     try {
       const hash = await claimCategory(address, pool.category);
-      toast.success(`${pool.title} claimed · TTN in your wallet`, { description: `Tx: ${hash.slice(0, 10)}…` });
+      notifySuccess(`${pool.title} Claim Successful`, `Tx: ${hash.slice(0, 10)}… · TTN in your wallet`);
       const fresh = await getPools(address);
       setLive(fresh);
     } catch (e) {

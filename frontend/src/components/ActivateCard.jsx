@@ -4,6 +4,7 @@ import { Rocket, Loader2 } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 import { toast } from "sonner";
 import { registerOnChain, stakeOnChain, getAccount } from "@/lib/chain";
+import { notifySuccess } from "@/lib/notify";
 
 const QUICK = [10, 50, 100];
 
@@ -26,10 +27,11 @@ export default function ActivateCard({ min = 10, onActivated }) {
       if (!acc.registered) {
         setStep("Registering…");
         await registerOnChain();
+        notifySuccess("Registration Successful", "Welcome to TITAN — your ID is now active");
       }
       setStep("Confirm USDT + stake in wallet…");
       const txHash = await stakeOnChain(val, address);
-      toast.success(`Staked $${val} on-chain`);
+      notifySuccess("Stake Successful", `$${val} staked · mining cap activated`);
       setStep("Recording…");
       await activateId(val).catch(() => {}); // keep backend tree in sync (non-blocking)
       onActivated?.(txHash);
