@@ -395,3 +395,14 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - BSC TESTNET on-chain PROOF (scripts/verify-direct-mint-testnet.js): Protocol=0xd3383c61d3d035753fD44041307F3d259180B658 holds 200000 TTN, deployer wallet=0. Token=0x463C467AFb4CD84992473819A84bae9feE0109eA, deploy tx=0x8c37cc93002962de92e47d14cd4b4496c6fb410e1707c972bdf833fa3b6c14fe. #1 tx = mint to contract, NO wallet->contract transfer.
 - Flattened Remix files regenerated: remix-flat/TitanProtocol_flat.sol + TitanToken_flat.sol. Guide rewritten (old 99% transfer instruction REMOVED).
 - NOTE: these testnet addresses are throwaway proof contracts; frontend/backend .env NOT changed.
+
+## ✅ FULL RE-TEST on new contract (2026-06) — BSC TESTNET live E2E (scripts/full-e2e-v2.js)
+All mechanisms verified on the NEW direct-mint contract (gasPrice 10gwei added to hardhat.config bscTestnet):
+- [1] Direct mint: Protocol=200000 TTN, deployer=0 ✓
+- [2] Wiring setToken/setRouter/community/security ✓
+- [3] seedLiquidity from contract's OWN TTN -> pool price $9.97 ✓
+- [4] register + stake $100 -> 200% cap ✓
+- [5] Merkle root (5 categories) posted ✓
+- [6] All 5 named claims (claimRoi/Level/Daily/Weekly/Monthly) buy TTN live, cap UNCHANGED ✓
+- [7] sell -> cap reduced by exact USDT received ✓
+Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/sell ABIs unchanged; only Protocol constructor + setToken/seedLiquidity are deploy-time).
