@@ -196,7 +196,7 @@ export default function Landing() {
             <span className="text-xs text-white/50">Liquidity Value</span>
             <span className="font-bold text-[#D6C51E]" style={{ fontFamily: "'Share Tech Mono', monospace" }}>${usd2(liq.value_usd)}</span>
           </div>
-          <button onClick={() => toast("Live pool opens after testnet deployment")} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#3C6B33]/50 py-2.5 text-xs font-semibold text-white/70 active:scale-[0.98]">
+          <button onClick={() => toast("Live pool opens at launch")} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#3C6B33]/50 py-2.5 text-xs font-semibold text-white/70 active:scale-[0.98]">
             View liquidity pool <ExternalLink size={13} />
           </button>
         </div>
