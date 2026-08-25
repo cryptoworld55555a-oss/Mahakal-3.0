@@ -20,4 +20,20 @@ contract MockRouter {
         amounts[0] = amountIn;
         amounts[1] = out;
     }
+
+    /// @notice TEST-ONLY addLiquidity: just pulls both tokens; returns dummy LP amount.
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256,
+        uint256,
+        address,
+        uint256
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
+        IERC20(tokenA).transferFrom(msg.sender, address(this), amountADesired);
+        IERC20(tokenB).transferFrom(msg.sender, address(this), amountBDesired);
+        return (amountADesired, amountBDesired, amountADesired);
+    }
 }

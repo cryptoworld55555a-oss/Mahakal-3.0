@@ -8,7 +8,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title Titan (TTN)
  * @notice BEP-20 token. Fixed total supply of 200,000 TTN, no infinite mint.
- * @dev Full supply is minted once to the deployer/treasury at construction.
+ * @dev Full supply is minted ONCE, at construction, DIRECTLY to `treasury` (the TitanProtocol
+ *      contract on mainnet) — so NO personal wallet ever holds the supply and BscScan shows the
+ *      contract as holder #1 from the very first transaction (no wallet->contract transfer).
  *      TRANSFER-RESTRICTED: a normal user CANNOT send TTN to arbitrary wallets.
  *      A transfer is only allowed when `from` OR `to` is whitelisted (the TitanProtocol
  *      contract, treasury/owner for setup, etc.). This means:

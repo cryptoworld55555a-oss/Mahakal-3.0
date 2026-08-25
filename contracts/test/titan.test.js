@@ -36,13 +36,13 @@ describe("TITAN Protocol + Security", function () {
 
     protocol = await (await ethers.getContractFactory("TitanProtocol")).deploy(
       await usdt.getAddress(),
-      await ttn.getAddress(),
       await security.getAddress(),
       backend.address,
       dev.address,
       community.address,
       owner.address
     );
+    await protocol.setToken(await ttn.getAddress());
     await protocol.setRouter(await router.getAddress());
     await ttn.setWhitelisted(await protocol.getAddress(), true);
 
@@ -231,5 +231,38 @@ describe("TITAN Protocol + Security", function () {
     await expect(
       protocol.connect(user).claimLevelIncome(E(10), 0, deadline, tree.getProof([user.address, "1", E(10).toString()]))
     ).to.be.revertedWith("user blocked");
+  });
+
+  it("MAINNET FLOW: token mints entire supply DIRECTLY to protocol (no wallet holds supply)", async () => {
+    // Deploy fresh: protocol first (no token), then token minting supply straight to protocol.
+    const usdt2 = await (await ethers.getContractFactory("MockUSDT")).deploy();
+    const sec2 = await (await ethers.getContractFactory("TitanSecurityAdmin")).deploy(admin.address);
+    const router2 = await (await ethers.getContractFactory("MockRouter")).deploy();
+    const proto2 = await (await ethers.getContractFactory("TitanProtocol")).deploy(
+      await usdt2.getAddress(), await sec2.getAddress(),
+      backend.address, dev.address, community.address, owner.address
+    );
+    // Token deployed AFTER protocol, treasury = protocol => supply minted directly to the contract.
+    const ttn2 = await (await ethers.getContractFactory("TitanToken")).deploy(await proto2.getAddress());
+
+    const MAX = E(200000);
+    // The token's FIRST and ONLY supply movement is the mint to the protocol contract.
+    expect(await ttn2.balanceOf(await proto2.getAddress())).to.equal(MAX);
+    expect(await ttn2.balanceOf(owner.address)).to.equal(0n);
+
+    // Link + one-time guard.
+    await proto2.setToken(await ttn2.getAddress());
+    await expect(proto2.setToken(await ttn2.getAddress())).to.be.revertedWith("token already set");
+
+    // Seed liquidity from the contract's OWN held TTN; LP burned to dead address.
+    await proto2.setRouter(await router2.getAddress());
+    await usdt2.approve(await proto2.getAddress(), ethers.MaxUint256);
+    const dead = "0x000000000000000000000000000000000000dEaD";
+    const dl = (await ethers.provider.getBlock("latest")).timestamp + 3600;
+    await proto2.seedLiquidity(E(20000), E(20000), dead, dl);
+    // TTN left the contract only via the router (contract -> pool), never via a personal wallet.
+    expect(await ttn2.balanceOf(await proto2.getAddress())).to.equal(MAX - E(20000));
+    expect(await ttn2.balanceOf(await router2.getAddress())).to.equal(E(20000));
+    expect(await ttn2.balanceOf(owner.address)).to.equal(0n);
   });
 });

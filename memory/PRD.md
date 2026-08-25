@@ -376,3 +376,22 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
 - So BscScan holders on day 1 should show: #1 = Protocol/distribution contract holding ~99% (verified + contract icon), #2 = PancakeSwap V2 LP pair. No initial wallet->contract transfer in history.
 - Implementation note: modify TitanToken constructor / deploy script so _mint targets the distribution contract (or deploy token with supply -> immediately used to seed the contract atomically). Protocol -> Safe multisig (NOT renounced, needs setMerkleRoot). Token renounced. Security kept.
 - The testnet demo used a post-deploy transfer only because contracts were already deployed — DO NOT do that on mainnet.
+
+## ⭐⭐ MAINNET HARD REQ v2 (user, 2026-08-25) — DIRECT MINT TO CONTRACT (NO wallet->contract transfer)
+- User FINAL: mainnet pe token ki PEHLI transaction hi = mint DIRECTLY to the Protocol/distribution contract. NO deployer-wallet-holds-then-transfers. Zero "wallet -> contract" transfer visible on BscScan. Supply "always on contract", fund aana-jaana wahin se.
+- APPROVED IMPLEMENTATION (to build + TEST on testnet next session, then re-flatten for Remix):
+  1. TitanToken: constructor takes `address mintTo` -> _mint(mintTo, TOTAL_SUPPLY) instead of msg.sender.
+  2. TitanProtocol: REMOVE token (ttn) from constructor; add one-time owner `setToken(address)` setter (with require not-already-set). Break circular dependency.
+  3. Remix deploy order: (a) deploy TitanProtocol (no token) (b) deploy TitanToken(mintTo = protocol_addr) -> token's FIRST tx = mint to protocol contract (c) protocol.setToken(token) (d) wiring/router/whitelist/community/security (e) keep small TTN for liquidity via a controlled path (f) addLiquidity + LP burn (g) protocol->Safe multisig (h) token renounce.
+  4. Update ALL hardhat tests + deploy scripts to new constructor signatures; run `npx hardhat test` (must stay green) + a testnet dry-run; then regenerate contracts/remix-flat/*_flat.sol + update REMIX_DEPLOY_GUIDE.md.
+- NOTE: keep a tiny liquidity allocation reachable without a visible wallet->contract transfer (e.g., protocol releases liquidity portion, or mint split: 99% to protocol + 1% liquidity handled inside deploy) — design cleanly next session.
+- Everything else already done/verified: stake-time level income, 10% monthly deduction, per-category named claims, 4 contracts verified on testnet, backend 179 tests + hardhat 12 tests green.
+
+## ✅ DONE (2026-06) — DIRECT MINT TO CONTRACT implemented + tested
+- TitanProtocol: `ttn` no longer immutable/constructor; added one-time `setToken()` + `seedLiquidity()` (adds LP from contract's OWN held TTN, LP -> dead addr). IPancakeRouter interface got `addLiquidity`.
+- TitanToken: unchanged logic (already mints to `treasury` param); now `treasury` = Protocol address.
+- Deploy ORDER (deploy.js + REMIX_DEPLOY_GUIDE.md updated): Security -> Community -> Protocol (no token) -> Token(treasury=Protocol) -> setToken -> setRouter -> wiring -> seedLiquidity -> transferOwnership(Safe) -> token renounce last.
+- Hardhat: 13 passing incl. new "MAINNET FLOW" test (supply minted straight to protocol, deployer=0, seedLiquidity from contract).
+- BSC TESTNET on-chain PROOF (scripts/verify-direct-mint-testnet.js): Protocol=0xd3383c61d3d035753fD44041307F3d259180B658 holds 200000 TTN, deployer wallet=0. Token=0x463C467AFb4CD84992473819A84bae9feE0109eA, deploy tx=0x8c37cc93002962de92e47d14cd4b4496c6fb410e1707c972bdf833fa3b6c14fe. #1 tx = mint to contract, NO wallet->contract transfer.
+- Flattened Remix files regenerated: remix-flat/TitanProtocol_flat.sol + TitanToken_flat.sol. Guide rewritten (old 99% transfer instruction REMOVED).
+- NOTE: these testnet addresses are throwaway proof contracts; frontend/backend .env NOT changed.

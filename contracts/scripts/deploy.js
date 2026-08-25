@@ -31,11 +31,6 @@ async function main() {
     console.log("USDT (real):", REAL_USDT);
   }
 
-  // 2) TITAN token (full supply to deployer/treasury)
-  const ttn = await (await ethers.getContractFactory("TitanToken")).deploy(deployer.address);
-  await ttn.waitForDeployment();
-  console.log("TitanToken:", await ttn.getAddress());
-
   // 3) Security & Admin
   const security = await (await ethers.getContractFactory("TitanSecurityAdmin")).deploy(admin);
   await security.waitForDeployment();
@@ -46,10 +41,9 @@ async function main() {
   await community.waitForDeployment();
   console.log("CommunityFund:", await community.getAddress());
 
-  // 5) Protocol
+  // 5) Protocol (deployed BEFORE the token so the token can mint supply straight to it)
   const protocol = await (await ethers.getContractFactory("TitanProtocol")).deploy(
     await usdt.getAddress(),
-    await ttn.getAddress(),
     await security.getAddress(),
     signer,
     devWallet,
@@ -59,9 +53,14 @@ async function main() {
   await protocol.waitForDeployment();
   console.log("TitanProtocol:", await protocol.getAddress());
 
-  // 6) Wiring
+  // 6) TITAN token — ENTIRE supply minted DIRECTLY to the Protocol contract (no wallet ever holds it).
+  const ttn = await (await ethers.getContractFactory("TitanToken")).deploy(await protocol.getAddress());
+  await ttn.waitForDeployment();
+  console.log("TitanToken:", await ttn.getAddress());
+
+  // 7) Wiring
+  await (await protocol.setToken(await ttn.getAddress())).wait();
   await (await protocol.setRouter(ROUTER)).wait();
-  await (await ttn.setWhitelisted(await protocol.getAddress(), true)).wait();
   await (await community.setProtocol(await protocol.getAddress())).wait();
   await (await security.setApprovedContract(await protocol.getAddress(), true)).wait();
   await (await security.setSystemWallet(await security.DEV_WALLET(), devWallet)).wait();
@@ -69,7 +68,8 @@ async function main() {
   await (await security.setSystemWallet(await security.WEEKLY_POOL_WALLET(), weeklyWallet)).wait();
   await (await security.setSystemWallet(await security.MONTHLY_POOL_WALLET(), monthlyWallet)).wait();
   await (await security.setSystemWallet(await security.LIQUIDITY_WALLET(), liquidityWallet)).wait();
-  console.log("Wiring done.");
+  console.log("Wiring done. Full 200,000 TTN supply is held by the Protocol contract from mint.");
+  console.log("Next: fund protocol USDT + call protocol.seedLiquidity(ttnAmt, usdtAmt, DEAD, deadline) to open the pool.");
 
   console.log("\n=== SET THESE IN frontend/.env AND backend/.env ===");
   console.log("TOKEN_ADDRESS=", await ttn.getAddress());

@@ -17,6 +17,17 @@ interface IPancakeRouter {
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }
 
 interface ITitanSecurity {
@@ -39,7 +50,7 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
 
     // ---------------------------------------------------------------- Wiring
     IERC20 public immutable usdt;
-    IERC20 public immutable ttn;
+    IERC20 public ttn; // set once via setToken() after the token mints its supply to THIS contract
     IPancakeRouter public router;
     ITitanSecurity public security;
     address public signer;         // backend authorization signer
@@ -113,20 +124,43 @@ contract TitanProtocol is Ownable, ReentrancyGuard {
 
     constructor(
         address _usdt,
-        address _ttn,
         address _security,
         address _signer,
         address _devWallet,
         address _communityFund,
         address _owner
     ) Ownable(_owner) {
-        require(_usdt != address(0) && _ttn != address(0) && _security != address(0), "zero addr");
+        require(_usdt != address(0) && _security != address(0), "zero addr");
         usdt = IERC20(_usdt);
-        ttn = IERC20(_ttn);
         security = ITitanSecurity(_security);
         signer = _signer;
         devWallet = _devWallet;
         communityFund = _communityFund;
+    }
+
+    /// @notice One-time link to the TTN token. The token is deployed AFTER this contract and
+    /// @dev mints its ENTIRE supply DIRECTLY to this contract (no wallet ever holds the supply).
+    ///      This breaks the token<->protocol circular dependency at deploy time.
+    function setToken(address _ttn) external onlyOwner {
+        require(address(ttn) == address(0), "token already set");
+        require(_ttn != address(0), "zero");
+        ttn = IERC20(_ttn);
+    }
+
+    /// @notice Seed the initial PancakeSwap TTN/USDT pool using this contract's OWN held TTN.
+    /// @dev TTN comes from the supply minted directly to this contract (never a personal wallet).
+    ///      USDT is pulled from the caller. LP tokens go to `lpReceiver` (use a dead address to
+    ///      lock liquidity permanently). Callable only once meaningfully during setup.
+    function seedLiquidity(uint256 ttnAmount, uint256 usdtAmount, address lpReceiver, uint256 deadline)
+        external onlyOwner nonReentrant
+    {
+        require(address(router) != address(0), "router unset");
+        require(address(ttn) != address(0), "token unset");
+        require(ttnAmount > 0 && usdtAmount > 0, "zero");
+        usdt.safeTransferFrom(msg.sender, address(this), usdtAmount);
+        ttn.forceApprove(address(router), ttnAmount);
+        usdt.forceApprove(address(router), usdtAmount);
+        router.addLiquidity(address(ttn), address(usdt), ttnAmount, usdtAmount, 0, 0, lpReceiver, deadline);
     }
 
     // ----------------------------------------------------------- Admin config
