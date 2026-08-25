@@ -444,3 +444,11 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - TitanSecurityAdmin 0x833D8A..7a12 NOT verified - Remix compiled with solc 0.8.34 (not 0.8.24), bytecode/evmVersion mismatch on hardhat verify. Non-critical (block/unblock admin). Can verify via Remix verify plugin later.
 - Contracts deployed with solc 0.8.34 in Remix (not 0.8.24). Note for future.
 - WalletConnect QR CONFIRMED working on live site (user tested). Project ID active.
+
+## ✅ REFERRAL-REQUIRED RULE DEPLOYED TO PROD (2026-06)
+- Business rule (user-mandated): NO account can join without a valid referral link/code. Only the very FIRST user (root/admin) may join with no sponsor.
+- Implemented in backend/server.py @ /auth/verify (line ~214-220): resolves sponsor via _resolve_sponsor(ref, addr); if sponsor is None AND users count > 0 -> HTTP 400 "A valid referral link is required to join."
+- DEPLOYED LIVE: user ran on Hostinger VPS Browser-terminal: `cd /opt/titan && git pull && systemctl restart titan-backend`. grep confirmed rule present (=1). Backend healthy: /api/ 200, /api/dashboard/stats 200.
+- ROOT CAUSE of "team not showing" bug: 1 of 3 live users had registered WITHOUT a proper referral (sponsor unset) -> orphan, not in admin's team. Admin team API correctly returns members:1 for the 1 properly-referred downline. Backend team calc was NEVER broken. Fix = enforce referral rule (done) + re-register orphan via admin's ref link.
+- SSH note: port 22 blocked on user's mobile carrier (both 4G/WiFi). Solution used = Hostinger hPanel "Browser terminal" (bypasses SSH). git pull needed repo temporarily PUBLIC (Mahakal-3.0 was private).
+- OUTSTANDING for user: (1) Make Mahakal-3.0 repo PRIVATE again. (2) Re-register orphan downline via https://titandefi.in/?ref=<admin-code>. (3) seedLiquidity at launch. (4) BscScan verify SecurityAdmin. (5) transferOwnership->Safe + renounce.
