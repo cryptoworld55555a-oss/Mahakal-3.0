@@ -438,3 +438,9 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - Deploy repo: Mahakal-3.0 (had latest code incl onchain.py; 2.0 was stale). Node 22 required (@wallet-standard). Fixed: emergentintegrations stripped from pip (grep -v), port 8001 orphan process killed (fuser -k) - the root cause of routes 404.
 - Deploy assets in repo root: deploy_vps.sh (updated: node22, grep-strip emergentintegrations) + DEPLOY_VPS.md.
 - REMAINING TO GO FULLY LIVE: (1) seedLiquidity on-chain (20000 TTN + 200 USDT, $0.01, LP->dead) at launch moment. (2) Make Mahakal-3.0 repo PRIVATE again. (3) Add titandefi.in to Reown dashboard allowed domains for WalletConnect QR. (4) Verify 4 contracts on BscScan. (5) transferOwnership->Safe + token renounce after setup.
+
+## ✅ CONTRACT VERIFICATION (2026-06)
+- Verified on BscScan (green check + source): TitanToken 0x3430D0..344Bc, TitanProtocol 0x5A483E..EEFD, CommunityFund 0x1aB174..F408 (3/4).
+- TitanSecurityAdmin 0x833D8A..7a12 NOT verified - Remix compiled with solc 0.8.34 (not 0.8.24), bytecode/evmVersion mismatch on hardhat verify. Non-critical (block/unblock admin). Can verify via Remix verify plugin later.
+- Contracts deployed with solc 0.8.34 in Remix (not 0.8.24). Note for future.
+- WalletConnect QR CONFIRMED working on live site (user tested). Project ID active.
