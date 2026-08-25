@@ -331,3 +331,14 @@ Proves: every reward type pays TTN at LIVE price; monthly+level reduce cap; ROI+
   - Deploy scripts: contracts/scripts/named-claims-testnet.js (deploy+5 claims), retry-claims.js (retry with delays for transient testnet RPC reverts).
 - Frontend config.js ONCHAIN.* + frontend/.env REACT_APP_TOKEN_ADDRESS/REACT_APP_MAIN_PROTOCOL_ADDRESS updated to new addresses; frontend restarted. Landing Protocol Ingredients shows new TTN/Mining Engine/USDT.
 - PENDING for human-readable labels on BscScan: contract VERIFICATION (needs BSCSCAN_API_KEY). Until verified, BscScan shows raw method selectors instead of "Claim Daily Pool" etc. Functions executed correctly regardless.
+
+## [2026-08-25] BscScan contract verification — ALL GREEN (Etherscan API V2)
+- User provided Etherscan API V2 free key (single key works across chains incl BSC). Set BSCSCAN_API_KEY in contracts/.env.
+- Installed @nomicfoundation/hardhat-verify@2.1.1 (Hardhat 2 compatible + Etherscan V2). hardhat.config: require hardhat-verify + etherscan.apiKey = single string.
+- All 4 testnet contracts VERIFIED (green source on BscScan):
+  - TitanToken 0xC7ed8B984A0b445EcC1f8531CAAb1eB41E5326dB (arg: deployer)
+  - TitanSecurityAdmin 0x1C61F12D72b4092DFf6E36F58496bda0fe1f2e24 (arg: deployer)
+  - TitanProtocol 0xc78f03C989Ae4820cCeE94E4A97D66b9605F426D (args: usdt, ttn, security, signer=deployer, dev=deployer, communityFund=0xdc9F7c..., owner=deployer)
+  - CommunityFund 0xdc9F7c6b33B2F1f73c09D66F99f11D70De9C0f08 (no args)
+- Named claim/stake/sell functions now render as readable labels on BscScan (Stake, Sell, Claim Roi, Claim Level Income, Claim Daily/Weekly/Monthly Pool).
+- Same key + flow reused at mainnet: `npx hardhat verify --network bscMainnet <addr> <args...>`.

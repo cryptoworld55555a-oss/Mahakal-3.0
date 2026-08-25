@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-ethers");
 require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomicfoundation/hardhat-verify");
 require("dotenv").config();
 
 const { DEPLOYER_PRIVATE_KEY, DEPLOYER_MNEMONIC, BSCSCAN_API_KEY } = process.env;
@@ -29,6 +30,6 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: { bsc: BSCSCAN_API_KEY || "", bscTestnet: BSCSCAN_API_KEY || "" },
+    apiKey: BSCSCAN_API_KEY || "",
   },
 };
