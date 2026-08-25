@@ -432,3 +432,9 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - Wiped all demo data (536 users, 854 roots, etc). protocol_stats zeroed. holders endpoint now DB-based (real users). DEFAULT_STATS zeroed.
 - SELF-HOST: /app/deploy_vps.sh (Ubuntu 24.04 one-shot: node20, python venv, MongoDB 8.0, nginx, certbot SSL, systemd titan-backend, yarn build) + /app/DEPLOY_VPS.md guide. Server: Hostinger KVM2 187.127.98.41 (root, Ubuntu 24.04, 8GB). Domain: titandefi.in. GitHub repo: https://github.com/cryptoworld55555a-oss/Mahakal-2.0.git
 - Backend Merkle root posting still MANUAL (via Remix/script) - backend auto-post w/ rootPoster key is a future task.
+
+## ✅✅ LIVE & DEPLOYED (2026-06) — https://titandefi.in
+- Self-hosted on Hostinger VPS 187.127.98.41 (Ubuntu 24.04). Frontend(React build)+Backend(FastAPI systemd titan-backend)+MongoDB 8.0(local)+Nginx+Certbot SSL. All verified: frontend 200, /api/dashboard/stats & /api/holders 200, clean state (0 users, pool_live False).
+- Deploy repo: Mahakal-3.0 (had latest code incl onchain.py; 2.0 was stale). Node 22 required (@wallet-standard). Fixed: emergentintegrations stripped from pip (grep -v), port 8001 orphan process killed (fuser -k) - the root cause of routes 404.
+- Deploy assets in repo root: deploy_vps.sh (updated: node22, grep-strip emergentintegrations) + DEPLOY_VPS.md.
+- REMAINING TO GO FULLY LIVE: (1) seedLiquidity on-chain (20000 TTN + 200 USDT, $0.01, LP->dead) at launch moment. (2) Make Mahakal-3.0 repo PRIVATE again. (3) Add titandefi.in to Reown dashboard allowed domains for WalletConnect QR. (4) Verify 4 contracts on BscScan. (5) transferOwnership->Safe + token renounce after setup.
