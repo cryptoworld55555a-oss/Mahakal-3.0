@@ -497,3 +497,10 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - BUG: StakePage.jsx stake card was NOT wired to this (was placeholder toast, then I wrongly wired to off-chain /activate). FIXED: StakePage now uses the SAME real on-chain flow as ActivateCard (getAccount/registerOnChain/stakeOnChain + activateId sync). USDT wallet balance read via ethers stays. Added step progress + busy.
 - So staking IS real on-chain (NOT mocked) via lib/chain.js. Both Dashboard ActivateCard AND Stake page now do the same real flow.
 - PENDING DEPLOY: StakePage.jsx -> git pull + frontend yarn build.
+
+## ✅ AUTO SNAPSHOT REBUILD ON STAKE + STAKE FIX (2026-06)
+- ROOT CAUSE (qualification showing 0 despite valid $50 chain): qualification reads reward_snapshots.latest which only updated on MANUAL /reward/tree/build. New stakes didn't reflect. Manual rebuild on live -> daily qualified_ids went 0->1 (working correctly).
+- FIX: extracted _rebuild_snapshot() helper; /activate now auto-calls it (try/except) after each stake so qualification updates immediately. No cron needed for qualification refresh.
+- STAKE FIX: StakePage getAccount() wrapped in try/catch (accountOf reverts for unregistered -> was crashing with "missing revert data" before register). Added USDT balance pre-check + friendly error for wrong-network/no-USDT. Mining cap label -> "(Preview) · After you stake" (was misleading "Granted").
+- NOTE: daily qual = 1 (not 2) because only accounts with BOTH own stake>=$50 (cap>=$100) AND >=1 direct with $50+ qualify; leaf/tip of chain has no direct.
+- PENDING DEPLOY: server.py + StakePage.jsx -> git pull + restart titan-backend + frontend yarn build.

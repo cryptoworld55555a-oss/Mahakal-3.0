@@ -305,6 +305,11 @@ async def activate_id(body: ActivateRequest):
     )
 
     updated = await db.users.find_one({"address": addr})
+    # Auto-refresh the reward snapshot so qualification (daily/weekly/etc.) reflects this stake immediately.
+    try:
+        await _rebuild_snapshot()
+    except Exception as e:
+        logging.warning(f"snapshot rebuild after activate failed: {e}")
     return _public_user(updated)
 
 
@@ -675,17 +680,10 @@ def _require_admin(x_admin_key: Optional[str]):
         raise HTTPException(status_code=403, detail="admin key required")
 
 
-@api_router.post("/reward/tree/build")
-async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
-    """Walk the REAL referral tree, compute every user's cumulative level+ROI+pool entitlement,
-    and auto-build the Merkle root + proofs. Owner/multisig posts the root on-chain; users claim
-    their own leaf. Persists the root + per-user breakdown & proofs for the admin dashboard."""
-    _require_admin(x_admin_key)
+async def _rebuild_snapshot():
+    """Recompute the whole reward tree + Merkle root + proofs and persist as the latest snapshot."""
     users, pools = await _load_network()
     leaves, breakdown = tree_engine.compute(users, pools)
-
-    # One-time Owner-Club: first monthly qualification grants 300% cap permanently.
-    # Apply it BEFORE finalizing so the 300% cap reflects in the SAME run (no 1-run lag).
     newly = [a for a, bd in breakdown.items() if bd.get("monthly_qualified") and not bd.get("owner_tier")]
     if newly:
         await db.users.update_many({"address": {"$in": newly}}, {"$set": {"owner_tier": True}})
@@ -694,7 +692,6 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
             if u["address"].lower() in newly_set:
                 u["owner_tier"] = True
         leaves, breakdown = tree_engine.compute(users, pools)  # recompute with 300% caps applied
-
     result = merkle.build(leaves)
     snapshot = {
         "root": result["root"],
@@ -709,7 +706,6 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
         {"_id": "latest", **snapshot, "breakdown": breakdown},
         upsert=True,
     )
-    # Store proofs per-user (avoids the 16MB single-doc limit at scale).
     await db.reward_proofs.delete_many({})
     grouped: dict = {}
     for p in result["proofs"]:
@@ -719,6 +715,13 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
             {"_id": addr, "root": result["root"], "proofs": pfs} for addr, pfs in grouped.items()
         ])
     return {**snapshot, "proofs": result["proofs"]}
+
+
+@api_router.post("/reward/tree/build")
+async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
+    """Walk the REAL referral tree, compute every user's entitlement, build Merkle root + proofs."""
+    _require_admin(x_admin_key)
+    return await _rebuild_snapshot()
 
 
 @api_router.get("/reward/tree/user/{address}")
