@@ -25,7 +25,7 @@ export default function TopHolders() {
       <SectionLabel center>Top TTN Holders</SectionLabel>
       <div className="card-glow p-4">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs text-white/50">Ranked by staked TTN</span>
+          <span className="text-xs text-white/50">Ranked by on-chain holdings</span>
           <span data-testid="holders-count" className="rounded-full bg-[#0AA84F]/15 px-2.5 py-1 text-[10px] font-semibold text-[#34D07A]">
             {data?.total ?? 0} holders
           </span>

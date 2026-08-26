@@ -21,6 +21,7 @@ def _token_address():
 SEL_GET_PAIR = '0xe6a43905'      # getPair(address,address)
 SEL_GET_RESERVES = '0x0902f1ac'  # getReserves()
 SEL_TOKEN0 = '0x0dfe1681'        # token0()
+SEL_BALANCE_OF = '0x70a08231'    # balanceOf(address)
 
 _cache = {"ts": 0, "data": None}
 _TTL = 30  # seconds
@@ -39,6 +40,18 @@ def _eth_call(to: str, data: str):
     with urllib.request.urlopen(req, timeout=8) as r:
         res = json.loads(r.read().decode())
     return res.get("result", "0x")
+
+
+def balance_of(wallet: str) -> float:
+    """Real on-chain TTN balance of a wallet (18 decimals). Returns 0.0 on any error."""
+    token = _token_address()
+    if token.lower() == '0x0000000000000000000000000000000000000000':
+        return 0.0
+    try:
+        raw = _eth_call(token, SEL_BALANCE_OF + _addr32(wallet))
+        return int(raw, 16) / 1e18 if raw and raw != '0x' else 0.0
+    except Exception:
+        return 0.0
 
 
 def _read_pool():
