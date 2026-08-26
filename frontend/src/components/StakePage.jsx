@@ -6,6 +6,8 @@ import { ethers } from "ethers";
 import SectionLabel from "@/components/SectionLabel";
 import { useWallet } from "@/context/WalletContext";
 import { ONCHAIN } from "@/config";
+import { registerOnChain, stakeOnChain, getAccount } from "@/lib/chain";
+import { notifySuccess } from "@/lib/notify";
 
 const QUICK = [10, 50, 100, 200, 500, 1000];
 const MIN = 10;
@@ -35,6 +37,7 @@ export default function StakePage() {
   const [agreed, setAgreed] = useState(false);
   const [walletUsdt, setWalletUsdt] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState("");
   const val = Math.min(MAX, Math.max(0, Number(amount) || 0));
 
   const buy = val * 0.6;
@@ -65,13 +68,24 @@ export default function StakePage() {
     if (!agreed) return toast.error("Please agree to the stake terms first");
     setBusy(true);
     try {
-      await activateId(val);
+      // Real on-chain flow: 1) register if needed, 2) approve USDT + stake (buys+locks TTN), 3) sync backend.
+      const acc = await getAccount(address);
+      if (!acc.registered) {
+        setStep("Registering…");
+        await registerOnChain();
+      }
+      setStep("Confirm USDT + stake in wallet…");
+      await stakeOnChain(val, address);
+      notifySuccess("Stake Successful", `$${val} staked · mining cap activated`);
+      setStep("Recording…");
+      await activateId(val).catch(() => {}); // keep backend tree in sync (non-blocking)
       setAgreed(false);
       loadBalance();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Staking failed. Please try again.");
+      toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Staking failed. Please try again.");
     } finally {
       setBusy(false);
+      setStep("");
     }
   };
 
@@ -178,7 +192,7 @@ export default function StakePage() {
         disabled={!agreed || val < MIN || busy}
         className="mt-1 h-12 w-full rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#D6C51E] text-base font-bold text-black transition-all active:scale-[0.98] shadow-[0_0_18px_rgba(10,168,79,0.45)] disabled:opacity-40 disabled:shadow-none"
       >
-        {busy ? "Staking…" : `Stake $${whole(val)}`}
+        {busy ? (step || "Staking…") : `Stake $${whole(val)}`}
       </button>
 
       {/* Stake participation history */}

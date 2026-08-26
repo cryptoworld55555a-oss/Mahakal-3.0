@@ -491,3 +491,9 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - ⚠️ IMPORTANT MOCKED: staking is OFF-CHAIN (/activate simulation). It does NOT actually move real USDT on-chain or buy TTN on PancakeSwap. Wallet USDT shown is REAL but stake doesn't deduct it. REAL on-chain staking (approve USDT + protocol.stake + PancakeSwap 60% buy) is the NEXT integration (needs contract ABI + approve flow + tx handling).
 - Branding: index.html title/desc/OG -> TITAN Protocol. Removed emergent-main.js badge + posthog analytics (ap.emergent.sh). og:image = ttn-logo-256.png. Sponsor address truncated in MyTeamPage.
 - PENDING DEPLOY: StakePage.jsx + index.html + MyTeamPage.jsx -> git pull + frontend yarn build (backend restart safe).
+
+## ✅ STAKE PAGE WIRED TO REAL ON-CHAIN (2026-06)
+- DISCOVERY: Dashboard's ActivateCard.jsx ALREADY does REAL on-chain stake via lib/chain.js: getAccount -> registerOnChain -> stakeOnChain (approve USDT + protocol stake + PancakeSwap 60% TTN buy) -> activateId (backend sync). Video confirmed: -50 USDT, gas, TTN buy, cap shown, status Active.
+- BUG: StakePage.jsx stake card was NOT wired to this (was placeholder toast, then I wrongly wired to off-chain /activate). FIXED: StakePage now uses the SAME real on-chain flow as ActivateCard (getAccount/registerOnChain/stakeOnChain + activateId sync). USDT wallet balance read via ethers stays. Added step progress + busy.
+- So staking IS real on-chain (NOT mocked) via lib/chain.js. Both Dashboard ActivateCard AND Stake page now do the same real flow.
+- PENDING DEPLOY: StakePage.jsx -> git pull + frontend yarn build.
