@@ -66,11 +66,20 @@ export default function StakePage() {
     if (val > MAX) return toast.error(`Maximum is $${MAX}/day`);
     if (val % 10 !== 0) return toast.error("Amount must be in multiples of $10");
     if (!agreed) return toast.error("Please agree to the stake terms first");
+    if (walletUsdt !== null && walletUsdt < val) {
+      return toast.error(`Insufficient USDT. You have ${money(walletUsdt)} USDT, need $${val}`);
+    }
     setBusy(true);
     try {
-      // Real on-chain flow: 1) register if needed, 2) approve USDT + stake (buys+locks TTN), 3) sync backend.
-      const acc = await getAccount(address);
-      if (!acc.registered) {
+      // 1) Check registration (accountOf reverts for unregistered users -> treat as not registered).
+      let registered = false;
+      try {
+        const acc = await getAccount(address);
+        registered = acc.registered;
+      } catch (_) {
+        registered = false;
+      }
+      if (!registered) {
         setStep("Registering…");
         await registerOnChain();
       }
@@ -82,7 +91,8 @@ export default function StakePage() {
       setAgreed(false);
       loadBalance();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Staking failed. Please try again.");
+      const msg = e?.response?.data?.detail || e?.shortMessage || e?.reason || e?.message || "Staking failed";
+      toast.error(msg.includes("missing revert") ? "Wallet not on BSC or has no USDT/BNB. Check network & balance." : msg);
     } finally {
       setBusy(false);
       setStep("");
