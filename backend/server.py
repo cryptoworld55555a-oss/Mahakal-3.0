@@ -745,12 +745,19 @@ async def reward_root_status():
     onchain_root = onchain.get_merkle_root()
     zero = "0x" + "0" * 64
     in_sync = bool(backend_root) and onchain_root.lower() == str(backend_root).lower()
+    auto_poster = onchain.root_poster_address()          # backend hot wallet (from PK), or None
+    onchain_poster = onchain.get_root_poster_onchain()   # currently authorized on contract
+    auto_authorized = bool(auto_poster) and auto_poster.lower() == onchain_poster.lower()
     return {
         "backend_root": backend_root,
         "onchain_root": onchain_root,
         "onchain_set": onchain_root.lower() != zero,
         "in_sync": in_sync,
         "leaf_count": leaf_count,
+        "auto_poster": auto_poster,
+        "onchain_root_poster": onchain_poster,
+        "auto_enabled": bool(auto_poster),
+        "auto_authorized": auto_authorized,
     }
 
 
@@ -844,6 +851,20 @@ async def _rebuild_snapshot():
         await db.reward_proofs.insert_many([
             {"_id": addr, "root": result["root"], "proofs": pfs} for addr, pfs in grouped.items()
         ])
+
+    # AUTO-POST the new root on-chain (fully automatic claims — no manual /admin step).
+    # Uses the limited ROOT POSTER hot wallet; only runs if BSC_ROOT_POSTER_PK is configured
+    # and the on-chain root actually differs. Never blocks/raises out of the rebuild.
+    if os.environ.get('BSC_ROOT_POSTER_PK'):
+        try:
+            current = onchain.get_merkle_root()
+            if str(result["root"]).lower() != current.lower():
+                loop = asyncio.get_event_loop()
+                txh = await loop.run_in_executor(None, onchain.set_merkle_root_onchain, result["root"])
+                logger.info(f"Auto-posted Merkle root {result['root']} tx={txh}")
+        except Exception as e:
+            logger.warning(f"Auto root-post skipped/failed: {e}")
+
     return {**snapshot, "proofs": result["proofs"]}
 
 

@@ -12,6 +12,7 @@ const SECURITY_ABI = [
 
 const PROTOCOL_ABI = [
   "function setMerkleRoot(bytes32 root)",
+  "function setRootPoster(address rootPoster)",
   "function setOwnerTier(address user, bool ownerTier)",
   "function rewardEpoch() view returns (uint256)",
 ];
@@ -67,6 +68,13 @@ export async function unblockAllOnChain() {
 export async function postMerkleRootOnChain(root) {
   const c = await protocolContract();
   const tx = await c.setMerkleRoot(root);
+  await tx.wait();
+  return tx.hash;
+}
+
+export async function setRootPosterOnChain(address) {
+  const c = await protocolContract();
+  const tx = await c.setRootPoster(address);
   await tx.wait();
   return tx.hash;
 }

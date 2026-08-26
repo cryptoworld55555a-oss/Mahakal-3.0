@@ -10,6 +10,7 @@ import {
 import {
   blockUserOnChain, unblockUserOnChain, pauseOnChain, unpauseOnChain,
   postMerkleRootOnChain, setOwnerTierOnChain, blockAllOnChain, unblockAllOnChain,
+  setRootPosterOnChain,
 } from "@/lib/adminChain";
 import { getInjectedSigner } from "@/lib/wallet";
 import { ONCHAIN } from "@/config";
@@ -94,6 +95,20 @@ export default function AdminPanel() {
       toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Sync failed");
     } finally { setBusy(""); }
   };
+  // One-time: authorize the backend hot wallet as rootPoster so roots post AUTOMATICALLY.
+  const doAuthorize = async () => {
+    if (needWallet()) return;
+    const addr = status?.auto_poster;
+    if (!addr) return toast.error("No auto-poster configured. Add BSC_ROOT_POSTER_PK on the server first.");
+    setBusy("authorize");
+    try {
+      const h = await setRootPosterOnChain(addr);
+      toast.success(`Auto-poster authorized · tx ${short(h)}`);
+      setTimeout(loadStatus, 4000);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Authorize failed");
+    } finally { setBusy(""); }
+  };
   const needWallet = () => { if (!admin) { toast.error("Connect admin wallet first"); return true; } return false; };
 
   const doBlock = async (a, blocked) => {
@@ -170,6 +185,24 @@ export default function AdminPanel() {
                   : status.onchain_set ? "⚠️ On-chain root is STALE — click Sync so users can claim"
                   : "⛔ No root posted on-chain yet — click Sync to enable claims"}
               </span>
+            </div>
+
+            {/* Auto-poster status: when authorized, roots post AUTOMATICALLY (no manual Sync needed). */}
+            <div data-testid="admin-autopost-status" className={`mt-2 rounded-xl border p-3 text-xs ${status?.auto_authorized ? "border-[#0AA84F]/40 bg-[#0AA84F]/10" : "border-[#FFA000]/40 bg-[#FFA000]/10"}`}>
+              {status == null ? "Checking auto-poster…"
+                : status.auto_authorized ? (
+                  <span className="font-semibold text-[#7CF3A0]">🤖 AUTO-POSTING ON — roots post automatically, users just claim. No manual step needed.</span>
+                ) : status.auto_enabled ? (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-semibold text-[#FFC24B]">🤖 Auto-poster ready ({short(status.auto_poster)}) but NOT yet authorized on-chain. Click below once to enable fully-automatic claims.</span>
+                    <button data-testid="admin-authorize-btn" onClick={doAuthorize} disabled={busy === "authorize"}
+                      className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#FFA000]/25 px-3 py-2 font-bold text-[#FFC24B] disabled:opacity-60">
+                      {busy === "authorize" ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />} Authorize Auto-Poster On-Chain (one-time)
+                    </button>
+                  </div>
+                ) : (
+                  <span className="font-semibold text-[#FFC24B]">⚙️ Auto-posting OFF — add BSC_ROOT_POSTER_PK on the server to make claims fully automatic (recommended). Until then, use the Sync button below after each change.</span>
+                )}
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">

@@ -542,3 +542,15 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
   - AdminPanel.jsx: live sync-status banner (green in-sync / red stale/none) + ONE-CLICK "Sync Rewards On-Chain (Run + Post)" (doSync: buildRewardTree then postMerkleRootOnChain with the fresh root so proofs always match). Fixed stale "BSC Testnet"->"BSC Mainnet".
 - CHURN WARNING: root changes on every /activate (auto-rebuild) and every pool settlement. Owner MUST click Sync again after new stakes/settlements or claims fail (banner turns red). Future: automate root posting via rootPoster hot key (needs NEW secured key — shared mnemonic compromised).
 - USER ACTION: deploy -> titandefi.in/admin -> connect owner wallet -> click "Sync Rewards On-Chain" -> claims work.
+
+## ✅ AUTO ROOT-POSTER (fully automatic claims) — 2026-08-26
+- USER DEMAND: claims must be FULLY AUTOMATIC (no manual /admin sync each time). Owner frustrated by manual repetition.
+- SOLUTION: backend auto-posts Merkle root on-chain via the contract's rootPoster role (limited: can ONLY setMerkleRoot, CANNOT move funds — safe hot wallet).
+- onchain.py: _poster_account() accepts BSC_ROOT_POSTER_PK as raw hex PK OR a 12/24-word mnemonic. set_merkle_root_onchain() builds+signs (eth_account) + eth_sendRawTransaction (raw RPC, no web3). get_root_poster_onchain(), root_poster_address().
+- server.py _rebuild_snapshot(): after building root, if BSC_ROOT_POSTER_PK set AND on-chain root differs -> auto-post via run_in_executor (try/except, never blocks). So every /activate + settlement + manual build auto-syncs the root.
+- /reward/root-status now returns auto_poster, onchain_root_poster, auto_enabled, auto_authorized.
+- AdminPanel.jsx: auto-post status banner + one-time "Authorize Auto-Poster On-Chain" button (setRootPosterOnChain -> setRootPoster). adminChain.js setRootPosterOnChain added.
+- POSTER WALLET (user-provided seed, NOW COMPROMISED since pasted in chat — burner only, no funds): address 0x1d69b29beec3EF6ab8ee5F618f7d9d09C3eA5Bf1. Has ~0.0003 BNB; needs top-up (~$2-3). Verified: set_merkle_root_onchain broadcast tx 0x8847...403 (reverted, expected — not yet authorized as rootPoster).
+- .env is gitignored -> BSC_ROOT_POSTER_PK NOT pushed to GitHub; user must add it on VPS /opt/titan/backend/.env manually.
+- USER SETUP (one-time): (1) add BSC_ROOT_POSTER_PK to VPS backend/.env, (2) fund poster wallet ~$3 BNB, (3) deploy+restart, (4) /admin owner wallet -> "Authorize Auto-Poster On-Chain", (5) click Sync once to post current root. After that: 100% automatic.
+- SECURITY TODO: seed phrase compromised (chat). Fine for rootPoster (no fund access) but user should NEVER reuse it for funds/owner. Rotate later via setRootPoster to a truly-private key if desired.
