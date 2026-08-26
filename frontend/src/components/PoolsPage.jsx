@@ -44,12 +44,12 @@ function ReqRow({ label, have, need, suffix = "" }) {
 function PoolCard({ p, onInfo, onHistory, onClaim, busy, now }) {
   const est = p.estimate != null ? p.estimate : (p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0);
   const qualified = p.reqs ? p.reqs.every((r) => r.ok) : (p.directsHave >= p.directsNeed && p.capHave >= p.capNeed);
-  // Per-user reverse countdown: claim stays LOCKED until the cycle countdown ends.
+  // Cycle-gated claim: pool shares are frozen & claimable ONLY after the cycle countdown ends.
   const claim = p.claim || {};
+  const settled = Number(claim.settled_usd || 0);
   const secsLeft = claim.unlock_at ? Math.max(0, Math.floor((new Date(claim.unlock_at).getTime() - now) / 1000)) : (claim.seconds_left ?? null);
-  const claimOpen = claim.unlock_at ? secsLeft <= 0 : !!claim.open;
-  const hasStarted = !!claim.activated_at;
-  const canClaim = qualified && claimOpen;
+  const claimOpen = !!claim.open && settled > 0;
+  const canClaim = claimOpen;
   return (
     <div data-testid={`pool-${p.key}`} className="card-glow p-5">
       <div className="flex items-start justify-between">
@@ -105,23 +105,25 @@ function PoolCard({ p, onInfo, onHistory, onClaim, busy, now }) {
       </div>
 
       <div className="mt-3 rounded-xl border border-[#3C6B33]/50 p-3">
-        {!hasStarted ? (
-          <div className="flex items-center gap-2 text-xs text-white/60">
-            <Clock size={14} className="text-[#D6C51E]" /> Activate your ID to start the claim countdown
-          </div>
-        ) : claimOpen ? (
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#34D07A]">
-            <CheckCircle2 size={14} /> Claim window is OPEN
+        {claimOpen ? (
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wide text-white/45">
+              <CheckCircle2 size={13} className="text-[#34D07A]" /> Your qualified share
+            </div>
+            <div data-testid={`pool-${p.key}-settled`} className="mt-1 text-2xl font-extrabold text-[#34D07A]">${usd2(settled)}</div>
+            <div className="mt-0.5 text-[10px] text-white/40">Cycle closed · ready to claim as TTN</div>
           </div>
         ) : (
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wide text-white/45">
-              <Clock size={13} className="text-[#D6C51E]" /> Claim opens in
+              <Clock size={13} className="text-[#D6C51E]" /> Claim opens when cycle ends
             </div>
             <div data-testid={`pool-${p.key}-countdown`} className="mt-1 font-mono text-2xl font-extrabold text-[#D6C51E]">
               {fmtCountdown(secsLeft)}
             </div>
-            <div className="mt-0.5 text-[10px] text-white/40">Opens at {fmtOpenAt(claim.unlock_at)}</div>
+            <div className="mt-0.5 text-[10px] text-white/40">
+              Closes {fmtOpenAt(claim.unlock_at)} · then all qualifiers split the pool
+            </div>
           </div>
         )}
       </div>
@@ -132,7 +134,7 @@ function PoolCard({ p, onInfo, onHistory, onClaim, busy, now }) {
         onClick={() => onClaim(p)}
         className="mt-3 h-11 w-full rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#D6C51E] text-sm font-bold text-black active:scale-[0.98] disabled:bg-none disabled:bg-[#3C6B33]/30 disabled:text-white/50"
       >
-        {busy ? "Claiming…" : !hasStarted ? "Activate to start" : !claimOpen ? `Locked · ${fmtCountdown(secsLeft)}` : qualified ? "Claim Share" : "Not qualified"}
+        {busy ? "Claiming…" : claimOpen ? `Claim $${usd2(settled)}` : `Locked · ${fmtCountdown(secsLeft)}`}
       </button>
 
       <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
@@ -181,9 +183,8 @@ export default function PoolsPage() {
   const doClaim = async (pool) => {
     if (pool.category == null) return;
     const claim = pool.claim || {};
-    const open = claim.unlock_at ? new Date(claim.unlock_at).getTime() <= Date.now() : !!claim.open;
-    if (!open) {
-      toast.error("Claim is locked — the countdown hasn't finished yet");
+    if (!claim.open || Number(claim.settled_usd || 0) <= 0) {
+      toast.error("Claim is locked — it opens after the cycle countdown ends");
       return;
     }
     setClaiming(pool.key);

@@ -173,6 +173,88 @@ def _pool_resets():
     return {"daily": daily.isoformat(), "weekly": weekly.isoformat(), "monthly": monthly.isoformat()}
 
 
+def _cycle_ids(now: datetime) -> dict:
+    """The identifier of the currently-OPEN (accumulating) cycle for each pool."""
+    iso = now.isocalendar()
+    return {
+        "daily": now.strftime("%Y-%m-%d"),
+        "weekly": f"{iso[0]}-W{iso[1]:02d}",
+        "monthly": now.strftime("%Y-%m"),
+    }
+
+
+async def _settle_due_pools():
+    """Cycle settlement: when a pool's countdown ends (its cycle id advances), FREEZE the
+    current qualifiers + pool balance, split it EQUALLY (daily/weekly: net 90%, the 10% moves
+    to the monthly Owner pool; monthly: full split), credit each qualifier's cumulative
+    `settled_*_usd`, then RESET the pool to 0 for the next cycle. Idempotent per cycle.
+    Returns True if anything was settled (caller should rebuild the snapshot)."""
+    now = datetime.now(timezone.utc)
+    cur = _cycle_ids(now)
+    state = await db.pool_state.find_one({"_id": "cycles"})
+    if not state:
+        # First run: start tracking the current open cycles, settle nothing yet.
+        await db.pool_state.insert_one({"_id": "cycles", **{f"{p}_open": cur[p] for p in cur}})
+        return False
+
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    breakdown = snap.get("breakdown") or {}
+    stats = await db.protocol_stats.find_one({"_id": "protocol"}) or {}
+    qual_key = {"daily": "daily_eligible", "weekly": "weekly_eligible", "monthly": "monthly_qualified"}
+    balance_key = {"daily": "daily_pool_usdt", "weekly": "weekly_pool_usdt", "monthly": "monthly_pool_usdt"}
+    settled_field = {"daily": "settled_daily_usd", "weekly": "settled_weekly_usd", "monthly": "settled_monthly_usd"}
+
+    changed = False
+    updates = {}
+    for pool in ("daily", "weekly", "monthly"):
+        open_cycle = state.get(f"{pool}_open")
+        if open_cycle is None:
+            updates[f"{pool}_open"] = cur[pool]
+            continue
+        if cur[pool] == open_cycle:
+            continue  # still inside the same cycle, nothing to settle
+
+        # --- The previous cycle just closed: settle it ---
+        balance = float(stats.get(balance_key[pool], 0) or 0)
+        qualifiers = [a for a, bd in breakdown.items() if bd.get(qual_key[pool])]
+        if balance > 0 and qualifiers:
+            if pool == "monthly":
+                per = balance / len(qualifiers)  # no further deduction
+                for a in qualifiers:
+                    await db.users.update_one({"address": a}, {"$inc": {settled_field[pool]: round(per, 6)}})
+            else:
+                gross_per = balance / len(qualifiers)
+                net_per = gross_per * 0.9          # recipient gets 90%
+                deduct_total = balance * 0.1       # 10% funds the monthly Owner pool
+                for a in qualifiers:
+                    await db.users.update_one({"address": a}, {"$inc": {settled_field[pool]: round(net_per, 6)}})
+                # Move the 10% deduction into the (accumulating) monthly pool.
+                await db.protocol_stats.update_one({"_id": "protocol"}, {"$inc": {"monthly_pool_usdt": round(deduct_total, 6)}})
+                stats["monthly_pool_usdt"] = float(stats.get("monthly_pool_usdt", 0) or 0) + deduct_total
+            # Reset this pool for the next cycle.
+            await db.protocol_stats.update_one({"_id": "protocol"}, {"$set": {balance_key[pool]: 0.0}})
+            stats[balance_key[pool]] = 0.0
+            # Record the closed cycle for history.
+            await db.pool_settlements.insert_one({
+                "pool": pool, "cycle": open_cycle, "closed_at": now.isoformat(),
+                "pool_total": round(balance, 6), "qualifiers": len(qualifiers),
+            })
+            changed = True
+        elif pool != "monthly" and balance > 0:
+            # No qualifiers this daily/weekly cycle -> carry the whole balance into the monthly pool.
+            await db.protocol_stats.update_one({"_id": "protocol"}, {"$inc": {"monthly_pool_usdt": round(balance, 6)}, "$set": {balance_key[pool]: 0.0}})
+            stats["monthly_pool_usdt"] = float(stats.get("monthly_pool_usdt", 0) or 0) + balance
+            stats[balance_key[pool]] = 0.0
+            changed = True
+
+        updates[f"{pool}_open"] = cur[pool]
+
+    if updates:
+        await db.pool_state.update_one({"_id": "cycles"}, {"$set": updates})
+    return changed
+
+
+
 # ----------------------------- Routes -----------------------------
 @api_router.get("/")
 async def root():
@@ -315,6 +397,8 @@ async def activate_id(body: ActivateRequest):
 
 @api_router.get("/dashboard/stats")
 async def dashboard_stats():
+    if await _settle_due_pools():
+        await _rebuild_snapshot()
     stats = await db.protocol_stats.find_one({"_id": "protocol"})
     if not stats:
         await db.protocol_stats.insert_one(DEFAULT_STATS.copy())
@@ -663,6 +747,9 @@ async def _load_network():
             "owner_tier": bool(u.get("owner_tier", False)),
             "active": bool(u.get("is_active", False)),
             "activated_at": u.get("activated_at"),
+            "settled_daily_usd": float(u.get("settled_daily_usd", 0) or 0),
+            "settled_weekly_usd": float(u.get("settled_weekly_usd", 0) or 0),
+            "settled_monthly_usd": float(u.get("settled_monthly_usd", 0) or 0),
         })
     stats = await db.protocol_stats.find_one({"_id": "protocol"}) or {}
     pools = {
@@ -681,7 +768,10 @@ def _require_admin(x_admin_key: Optional[str]):
 
 
 async def _rebuild_snapshot():
-    """Recompute the whole reward tree + Merkle root + proofs and persist as the latest snapshot."""
+    """Recompute the whole reward tree + Merkle root + proofs and persist as the latest snapshot.
+    POOL rewards (daily/weekly/monthly) are CYCLE-GATED: the Merkle leaves for categories 2/3/4
+    carry each user's SETTLED cumulative amount (credited only when a cycle closes), NOT the live
+    running share. So pool rewards are NOT claimable on-chain until the countdown ends."""
     users, pools = await _load_network()
     leaves, breakdown = tree_engine.compute(users, pools)
     newly = [a for a, bd in breakdown.items() if bd.get("monthly_qualified") and not bd.get("owner_tier")]
@@ -692,6 +782,26 @@ async def _rebuild_snapshot():
             if u["address"].lower() in newly_set:
                 u["owner_tier"] = True
         leaves, breakdown = tree_engine.compute(users, pools)  # recompute with 300% caps applied
+
+    # --- Cycle gate: swap live pool leaves (cat 2/3/4) for SETTLED cumulative amounts. ---
+    settled = {u["address"].lower(): u for u in users}
+    leaves = [(a, cat, wei) for (a, cat, wei) in leaves if cat not in (2, 3, 4)]
+    for a, u in settled.items():
+        sd = float(u.get("settled_daily_usd", 0) or 0)
+        sw = float(u.get("settled_weekly_usd", 0) or 0)
+        sm = float(u.get("settled_monthly_usd", 0) or 0)
+        for amt, cat in ((sd, 2), (sw, 3), (sm, 4)):
+            if amt > 0:
+                leaves.append((a, cat, int(round(amt * 1e18))))
+        if a in breakdown:
+            bd = breakdown[a]
+            bd["settled_daily_usd"] = round(sd, 6)
+            bd["settled_weekly_usd"] = round(sw, 6)
+            bd["settled_monthly_usd"] = round(sm, 6)
+            # Claimable = self ROI + net level income + SETTLED pool rewards (not live pool shares).
+            claimable = float(bd.get("self_roi_usd", 0)) + float(bd.get("level_income_net_usd", 0)) + sd + sw + sm
+            bd["settled_claimable_usd"] = round(claimable, 6)
+
     result = merkle.build(leaves)
     snapshot = {
         "root": result["root"],
@@ -724,6 +834,18 @@ async def reward_tree_build(x_admin_key: Optional[str] = Header(default=None)):
     return await _rebuild_snapshot()
 
 
+@api_router.post("/reward/settle-due")
+async def reward_settle_due(x_admin_key: Optional[str] = Header(default=None)):
+    """Close any pool cycle whose countdown has ended: freeze qualifiers, split the pool equally,
+    credit each qualifier's settled share, reset the pool, then rebuild the Merkle snapshot so the
+    settled amounts become claimable on-chain. Idempotent — safe to run from a cron every minute."""
+    _require_admin(x_admin_key)
+    settled = await _settle_due_pools()
+    if settled:
+        await _rebuild_snapshot()
+    return {"settled": settled}
+
+
 @api_router.get("/reward/tree/user/{address}")
 async def reward_tree_user(address: str):
     """A user's reward breakdown + the Merkle proof(s) they need to claim on-chain."""
@@ -739,25 +861,26 @@ async def reward_tree_user(address: str):
     return {"root": snap["root"], "breakdown": bd, "proofs": proofs}
 
 
-def _claim_window(activated_at: Optional[str], period_hours: float) -> dict:
-    """Per-user reverse countdown: claim opens `period_hours` after the user's activation.
-    Daily = 24h, Weekly = 168h (7d), Monthly = 720h (30d). Locked until the countdown ends."""
-    if not activated_at:
-        return {"open": False, "unlock_at": None, "seconds_left": None, "activated_at": None}
-    try:
-        start = datetime.fromisoformat(activated_at)
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
-    except Exception:
-        return {"open": False, "unlock_at": None, "seconds_left": None, "activated_at": activated_at}
-    unlock = start + timedelta(hours=period_hours)
+def _pool_claim(pool_key: str, settled_usd: float, resets: dict) -> dict:
+    """Claim state for a pool. LOCKED while the cycle countdown runs; a user's frozen share
+    (settled_usd) only becomes claimable AFTER the cycle closes and settlement credits it.
+    unlock_at = next cycle close (the same countdown shown on the dashboard)."""
+    unlock_at = resets.get(pool_key)
     now = datetime.now(timezone.utc)
-    left = (unlock - now).total_seconds()
+    left = None
+    if unlock_at:
+        try:
+            u = datetime.fromisoformat(unlock_at)
+            if u.tzinfo is None:
+                u = u.replace(tzinfo=timezone.utc)
+            left = max(0, int((u - now).total_seconds()))
+        except Exception:
+            left = None
     return {
-        "open": left <= 0,
-        "unlock_at": unlock.isoformat(),
-        "seconds_left": max(0, int(left)),
-        "activated_at": activated_at,
+        "settled_usd": round(float(settled_usd or 0), 2),
+        "open": float(settled_usd or 0) > 0,   # claimable only when a closed cycle credited a share
+        "unlock_at": unlock_at,                 # next cycle close (countdown target)
+        "seconds_left": left,
     }
 
 
@@ -766,8 +889,11 @@ async def pools_for_user(address: str):
     """Per-user pool qualification progress + live pool balances + on-chain achievers,
     computed from the latest reward snapshot (mirrors AETHERA's Reward Pools screen)."""
     addr = address.lower()
+    # Close any cycle whose countdown has ended (freeze qualifiers + split + reset), then rebuild.
+    if await _settle_due_pools():
+        await _rebuild_snapshot()
     user_doc = await db.users.find_one({"address": addr}) or {}
-    activated_at = user_doc.get("activated_at")
+    resets = _pool_resets()
     stats = await db.protocol_stats.find_one({"_id": "protocol"}) or {}
     snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
     breakdown = snap.get("breakdown") or {}
@@ -805,13 +931,16 @@ async def pools_for_user(address: str):
     daily_q = bool(bd.get("daily_eligible"))
     weekly_q = bool(bd.get("weekly_eligible"))
     monthly_q = bool(bd.get("monthly_qualified"))
+    settled_daily = float(user_doc.get("settled_daily_usd", 0) or 0)
+    settled_weekly = float(user_doc.get("settled_weekly_usd", 0) or 0)
+    settled_monthly = float(user_doc.get("settled_monthly_usd", 0) or 0)
 
     return {
         "in_tree": in_tree,
         "daily": {
             "balance": daily_bal, "achievers": daily_ach, "qualified": daily_q,
             "estimate": est_net(daily_bal, daily_ach, daily_q),
-            "claim": _claim_window(activated_at, 24),
+            "claim": _pool_claim("daily", settled_daily, resets),
             "reqs": [
                 {"label": "Direct with 50+ Stake today", "have": q_directs, "need": 1, "ok": q_directs >= 1},
                 {"label": "Available mining cap", "have": round(cap, 2), "need": 100, "ok": cap >= 100, "usd": True},
@@ -820,7 +949,7 @@ async def pools_for_user(address: str):
         "weekly": {
             "balance": weekly_bal, "achievers": weekly_ach, "qualified": weekly_q,
             "estimate": est_net(weekly_bal, weekly_ach, weekly_q),
-            "claim": _claim_window(activated_at, 24 * 7),
+            "claim": _pool_claim("weekly", settled_weekly, resets),
             "reqs": [
                 {"label": "Directs with 50+ Stake this week", "have": q_directs, "need": 5, "ok": q_directs >= 5},
                 {"label": "Available mining cap", "have": round(cap, 2), "need": 200, "ok": cap >= 200, "usd": True},
@@ -829,7 +958,7 @@ async def pools_for_user(address: str):
         "monthly": {
             "balance": monthly_bal, "achievers": monthly_ach, "qualified": monthly_q,
             "estimate": est(monthly_bal, monthly_ach, monthly_q),
-            "claim": _claim_window(activated_at, 24 * 30),
+            "claim": _pool_claim("monthly", settled_monthly, resets),
             "reqs": [
                 {"label": "Active membership", "have": 1 if in_tree else 0, "need": 1, "ok": in_tree, "text": "Active"},
                 {"label": "Active directs (min $50)", "have": active_directs, "need": 10, "ok": active_directs >= 10},
