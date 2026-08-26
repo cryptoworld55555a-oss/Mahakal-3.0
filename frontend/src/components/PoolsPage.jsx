@@ -11,6 +11,23 @@ import SectionLabel from "@/components/SectionLabel";
 const usd = (n) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n || 0);
 const usd2 = (n) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 
+function fmtCountdown(secs) {
+  if (secs == null || secs <= 0) return "00:00:00";
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  const pad = (x) => String(x).padStart(2, "0");
+  return d > 0 ? `${d}d ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function fmtOpenAt(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
+}
+
 function ReqRow({ label, have, need, suffix = "" }) {
   const ok = have >= need;
   return (
@@ -24,9 +41,15 @@ function ReqRow({ label, have, need, suffix = "" }) {
   );
 }
 
-function PoolCard({ p, onInfo, onHistory, onClaim, busy }) {
+function PoolCard({ p, onInfo, onHistory, onClaim, busy, now }) {
   const est = p.estimate != null ? p.estimate : (p.achievers >= 0 ? p.balance / (p.achievers + 1) : 0);
   const qualified = p.reqs ? p.reqs.every((r) => r.ok) : (p.directsHave >= p.directsNeed && p.capHave >= p.capNeed);
+  // Per-user reverse countdown: claim stays LOCKED until the cycle countdown ends.
+  const claim = p.claim || {};
+  const secsLeft = claim.unlock_at ? Math.max(0, Math.floor((new Date(claim.unlock_at).getTime() - now) / 1000)) : (claim.seconds_left ?? null);
+  const claimOpen = claim.unlock_at ? secsLeft <= 0 : !!claim.open;
+  const hasStarted = !!claim.activated_at;
+  const canClaim = qualified && claimOpen;
   return (
     <div data-testid={`pool-${p.key}`} className="card-glow p-5">
       <div className="flex items-start justify-between">
@@ -81,17 +104,35 @@ function PoolCard({ p, onInfo, onHistory, onClaim, busy }) {
         )}
       </div>
 
-      <div className="mt-3 flex items-center gap-1.5 text-xs text-white/70">
-        <Clock size={13} className="text-[#D6C51E]" /> Live estimate; finalized when pool closes
+      <div className="mt-3 rounded-xl border border-[#3C6B33]/50 p-3">
+        {!hasStarted ? (
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            <Clock size={14} className="text-[#D6C51E]" /> Activate your ID to start the claim countdown
+          </div>
+        ) : claimOpen ? (
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#34D07A]">
+            <CheckCircle2 size={14} /> Claim window is OPEN
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wide text-white/45">
+              <Clock size={13} className="text-[#D6C51E]" /> Claim opens in
+            </div>
+            <div data-testid={`pool-${p.key}-countdown`} className="mt-1 font-mono text-2xl font-extrabold text-[#D6C51E]">
+              {fmtCountdown(secsLeft)}
+            </div>
+            <div className="mt-0.5 text-[10px] text-white/40">Opens at {fmtOpenAt(claim.unlock_at)}</div>
+          </div>
+        )}
       </div>
 
       <button
         data-testid={`pool-${p.key}-btn`}
-        disabled={!qualified || busy}
+        disabled={!canClaim || busy}
         onClick={() => onClaim(p)}
         className="mt-3 h-11 w-full rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#D6C51E] text-sm font-bold text-black active:scale-[0.98] disabled:bg-none disabled:bg-[#3C6B33]/30 disabled:text-white/50"
       >
-        {busy ? "Claiming…" : qualified ? "Claim Share" : "Not qualified"}
+        {busy ? "Claiming…" : !hasStarted ? "Activate to start" : !claimOpen ? `Locked · ${fmtCountdown(secsLeft)}` : qualified ? "Claim Share" : "Not qualified"}
       </button>
 
       <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
@@ -127,13 +168,24 @@ export default function PoolsPage() {
   const [live, setLive] = useState(null); // real per-user pool data
   const [claiming, setClaiming] = useState(""); // pool key being claimed
   const [modal, setModal] = useState(null); // {type:'info'|'history', pool}
+  const [now, setNow] = useState(Date.now());
   useEffect(() => { getDashboardStats().then(setStats).catch(() => {}); }, []);
   useEffect(() => {
     if (address) getPools(address).then(setLive).catch(() => setLive(null));
   }, [address]);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const doClaim = async (pool) => {
     if (pool.category == null) return;
+    const claim = pool.claim || {};
+    const open = claim.unlock_at ? new Date(claim.unlock_at).getTime() <= Date.now() : !!claim.open;
+    if (!open) {
+      toast.error("Claim is locked — the countdown hasn't finished yet");
+      return;
+    }
     setClaiming(pool.key);
     try {
       const hash = await claimCategory(address, pool.category);
@@ -158,12 +210,15 @@ export default function PoolsPage() {
     ? [
         { key: "daily", title: "Daily TITAN Pool", period: `Current on-chain day · ID ${day}`,
           balance: live.daily.balance, achievers: live.daily.achievers, estimate: live.daily.estimate,
+          claim: live.daily.claim,
           reqs: toReqs(live.daily.reqs), pending: pendingOf(live.daily.reqs) },
         { key: "weekly", title: "Weekly Champion Pool", period: "Current on-chain week · ID 1",
           balance: live.weekly.balance, achievers: live.weekly.achievers, estimate: live.weekly.estimate,
+          claim: live.weekly.claim,
           reqs: toReqs(live.weekly.reqs), pending: pendingOf(live.weekly.reqs) },
         { key: "monthly", title: "Monthly Owner Club Reward", period: "Current on-chain month · ID 1",
           balance: live.monthly.balance, achievers: live.monthly.achievers, estimate: live.monthly.estimate,
+          claim: live.monthly.claim,
           reqs: [...toReqs(live.monthly.reqs), { label: "On-chain qualification", val: live.monthly.qualified ? "Submitted" : "Pending", ok: live.monthly.qualified }],
           pending: pendingOf(live.monthly.reqs) + (live.monthly.qualified ? 0 : 1) },
       ]
@@ -191,6 +246,7 @@ export default function PoolsPage() {
           key={p.key}
           p={{ ...p, category: POOL_CAT[p.key] }}
           busy={claiming === p.key}
+          now={now}
           onClaim={doClaim}
           onInfo={(pool) => setModal({ type: "info", pool })}
           onHistory={(pool) => setModal({ type: "history", pool })}

@@ -739,11 +739,35 @@ async def reward_tree_user(address: str):
     return {"root": snap["root"], "breakdown": bd, "proofs": proofs}
 
 
+def _claim_window(activated_at: Optional[str], period_hours: float) -> dict:
+    """Per-user reverse countdown: claim opens `period_hours` after the user's activation.
+    Daily = 24h, Weekly = 168h (7d), Monthly = 720h (30d). Locked until the countdown ends."""
+    if not activated_at:
+        return {"open": False, "unlock_at": None, "seconds_left": None, "activated_at": None}
+    try:
+        start = datetime.fromisoformat(activated_at)
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+    except Exception:
+        return {"open": False, "unlock_at": None, "seconds_left": None, "activated_at": activated_at}
+    unlock = start + timedelta(hours=period_hours)
+    now = datetime.now(timezone.utc)
+    left = (unlock - now).total_seconds()
+    return {
+        "open": left <= 0,
+        "unlock_at": unlock.isoformat(),
+        "seconds_left": max(0, int(left)),
+        "activated_at": activated_at,
+    }
+
+
 @api_router.get("/pools/{address}")
 async def pools_for_user(address: str):
     """Per-user pool qualification progress + live pool balances + on-chain achievers,
     computed from the latest reward snapshot (mirrors AETHERA's Reward Pools screen)."""
     addr = address.lower()
+    user_doc = await db.users.find_one({"address": addr}) or {}
+    activated_at = user_doc.get("activated_at")
     stats = await db.protocol_stats.find_one({"_id": "protocol"}) or {}
     snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
     breakdown = snap.get("breakdown") or {}
@@ -787,6 +811,7 @@ async def pools_for_user(address: str):
         "daily": {
             "balance": daily_bal, "achievers": daily_ach, "qualified": daily_q,
             "estimate": est_net(daily_bal, daily_ach, daily_q),
+            "claim": _claim_window(activated_at, 24),
             "reqs": [
                 {"label": "Direct with 50+ Stake today", "have": q_directs, "need": 1, "ok": q_directs >= 1},
                 {"label": "Available mining cap", "have": round(cap, 2), "need": 100, "ok": cap >= 100, "usd": True},
@@ -795,6 +820,7 @@ async def pools_for_user(address: str):
         "weekly": {
             "balance": weekly_bal, "achievers": weekly_ach, "qualified": weekly_q,
             "estimate": est_net(weekly_bal, weekly_ach, weekly_q),
+            "claim": _claim_window(activated_at, 24 * 7),
             "reqs": [
                 {"label": "Directs with 50+ Stake this week", "have": q_directs, "need": 5, "ok": q_directs >= 5},
                 {"label": "Available mining cap", "have": round(cap, 2), "need": 200, "ok": cap >= 200, "usd": True},
@@ -803,6 +829,7 @@ async def pools_for_user(address: str):
         "monthly": {
             "balance": monthly_bal, "achievers": monthly_ach, "qualified": monthly_q,
             "estimate": est(monthly_bal, monthly_ach, monthly_q),
+            "claim": _claim_window(activated_at, 24 * 30),
             "reqs": [
                 {"label": "Active membership", "have": 1 if in_tree else 0, "need": 1, "ok": in_tree, "text": "Active"},
                 {"label": "Active directs (min $50)", "have": active_directs, "need": 10, "ok": active_directs >= 10},
