@@ -504,3 +504,10 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - STAKE FIX: StakePage getAccount() wrapped in try/catch (accountOf reverts for unregistered -> was crashing with "missing revert data" before register). Added USDT balance pre-check + friendly error for wrong-network/no-USDT. Mining cap label -> "(Preview) · After you stake" (was misleading "Granted").
 - NOTE: daily qual = 1 (not 2) because only accounts with BOTH own stake>=$50 (cap>=$100) AND >=1 direct with $50+ qualify; leaf/tip of chain has no direct.
 - PENDING DEPLOY: server.py + StakePage.jsx -> git pull + restart titan-backend + frontend yarn build.
+
+## 🚨 CRITICAL: POOL CLAIMS NOT TIME-GATED (2026-06) - MUST FIX BEFORE PUBLIC LAUNCH
+- USER-REPORTED BUG: daily pool reward ($8.10) was claimable BEFORE the daily countdown ended. Early claimer takes whole pool; later same-day qualifiers get nothing. UNFAIR / fund-loss risk.
+- CORRECT MECHANISM (user confirmed): daily/weekly/monthly POOL rewards must be LOCKED until the cycle (countdown) ends. At cycle close: distribute pool equally among ALL that-cycle qualifiers, THEN open claims. Before close: show "Claim opens at [time]".
+- Level/ROI income = OK to claim anytime (earned). Only POOL portions (daily_pool_usd/weekly_pool_usd/monthly_pool_usd) must be cycle-gated.
+- This is the "Daily Pool Distribution + Reset Cycle" module (Part A) - NOT YET BUILT. tree_engine currently includes pool shares in claimable Merkle leaf immediately (category 2/3/4), so they're claimable anytime.
+- FIX NEEDED (next module): (1) cycle boundary tracking, (2) exclude current-cycle pool amounts from claimable until cycle closes, (3) at close: freeze qualifiers + equal split + reset pool to 0, (4) frontend "claim opens at" gating. RECOMMEND: pause real pool claims / public launch until built.
