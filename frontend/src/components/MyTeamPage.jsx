@@ -128,20 +128,20 @@ export default function MyTeamPage() {
       <SectionLabel center>Network &amp; Referral</SectionLabel>
 
       {/* My Sponsor */}
-      <div data-testid="team-sponsor" className="card-glow flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
+      <div data-testid="team-sponsor" className="card-glow flex items-center justify-between gap-3 p-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3C6B33]/60 bg-[#0AA84F]/12">
             <User size={20} className="text-[#34D07A]" />
           </span>
-          <div>
+          <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-[#34D07A]">My Sponsor</div>
-            <div className="font-mono text-sm font-bold text-white">{t.sponsor || "—"}</div>
+            <div className="truncate font-mono text-sm font-bold text-white">{t.sponsor ? shortAddr(t.sponsor) : "—"}</div>
           </div>
         </div>
         <button
           data-testid="team-sponsor-copy"
           onClick={() => copy(t.sponsor || "", "Sponsor address copied")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D6C51E]/40 text-[#D6C51E] active:scale-95"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#D6C51E]/40 text-[#D6C51E] active:scale-95"
         >
           <Copy size={15} />
         </button>
