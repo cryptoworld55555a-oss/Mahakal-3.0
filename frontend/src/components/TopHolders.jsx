@@ -4,6 +4,8 @@ import SectionLabel from "@/components/SectionLabel";
 import { getHolders } from "@/lib/api";
 import { config } from "@/config";
 
+const shortAddr = (a) => (a && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a || "");
+
 export default function TopHolders() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -56,9 +58,9 @@ export default function TopHolders() {
               href={`${config.explorer}/token/${config.tokenAddress}`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 font-mono text-[#34D07A] active:opacity-80"
+              className="flex min-w-0 items-center gap-1.5 font-mono text-[#34D07A] active:opacity-80"
             >
-              {h.address}
+              <span className="truncate">{shortAddr(h.address)}</span>
               <ExternalLink size={12} className="shrink-0 text-[#34D07A]" />
             </a>
             <span className="text-right font-semibold text-white">
