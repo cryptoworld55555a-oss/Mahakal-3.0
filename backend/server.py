@@ -523,7 +523,14 @@ async def holders(search: str = "", page: int = 1, page_size: int = Query(25, ge
     if search:
         query = {"address": {"$regex": search.lower().replace("0x", "")}}
     users = await db.users.find(query).sort("total_deposited", -1).to_list(length=10000)
-    data = [{"address": u.get("address", ""), "ttn": round(float(u.get("total_deposited", 0) or 0), 4)} for u in users]
+    # Each user's staked TTN = 60% of their deposit (auto-bought & locked) / TTN price.
+    pool = onchain.get_pool_state()
+    price = float(pool.get("price_usd") or 0) or 0.01  # fallback to opening price
+    data = []
+    for u in users:
+        dep = float(u.get("total_deposited", 0) or 0)
+        ttn = round((dep * 0.60) / price, 2) if dep > 0 else 0.0
+        data.append({"address": u.get("address", ""), "ttn": ttn})
     total = len(data)
     pages = max(1, (total + page_size - 1) // page_size)
     page = max(1, min(page, pages))
