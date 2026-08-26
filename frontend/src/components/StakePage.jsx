@@ -162,9 +162,9 @@ export default function StakePage() {
       <div className="grid grid-cols-2 gap-3">
         <div data-testid="mining-cap-granted" className="card-glow p-4">
           <Cpu size={16} className="mb-2 text-[#34D07A]" />
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-[#34D07A]">Mining Cap Granted</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-[#34D07A]">Mining Cap (Preview)</div>
           <div data-testid="mining-cap-value" className="text-xl font-extrabold text-[#D6C51E]">${whole(cap)}</div>
-          <div className="text-[11px] text-white/50">2× Standard</div>
+          <div className="text-[11px] text-white/50">After you stake · 2×</div>
         </div>
         <div data-testid="daily-generation" className="card-glow p-4">
           <TrendingUp size={16} className="mb-2 text-[#34D07A]" />
