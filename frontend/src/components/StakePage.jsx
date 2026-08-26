@@ -1,12 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Wallet, Layers, Cpu, TrendingUp, Check, History } from "lucide-react";
 import { toast } from "sonner";
+import { ethers } from "ethers";
 import SectionLabel from "@/components/SectionLabel";
+import { useWallet } from "@/context/WalletContext";
+import { ONCHAIN } from "@/config";
 
 const QUICK = [10, 50, 100, 200, 500, 1000];
 const MIN = 10;
 const MAX = 1000;
+const ERC20_ABI = ["function balanceOf(address) view returns (uint256)"];
 
 const money = (n) =>
   new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -26,8 +30,11 @@ function AllocRow({ pct, label, value, testid }) {
 }
 
 export default function StakePage() {
+  const { address, user, activateId } = useWallet();
   const [amount, setAmount] = useState("10");
   const [agreed, setAgreed] = useState(false);
+  const [walletUsdt, setWalletUsdt] = useState(null);
+  const [busy, setBusy] = useState(false);
   const val = Math.min(MAX, Math.max(0, Number(amount) || 0));
 
   const buy = val * 0.6;
@@ -36,12 +43,36 @@ export default function StakePage() {
   const cap = val * 2;
   const daily = cap * 0.005;
 
-  const stake = () => {
+  const loadBalance = useCallback(async () => {
+    if (!address) { setWalletUsdt(null); return; }
+    try {
+      const provider = new ethers.JsonRpcProvider(ONCHAIN.rpc);
+      const usdt = new ethers.Contract(ONCHAIN.usdt, ERC20_ABI, provider);
+      const bal = await usdt.balanceOf(address);
+      setWalletUsdt(Number(ethers.formatUnits(bal, 18)));
+    } catch (e) {
+      setWalletUsdt(null);
+    }
+  }, [address]);
+
+  useEffect(() => { loadBalance(); }, [loadBalance]);
+
+  const stake = async () => {
+    if (!address) return toast.error("Connect your wallet first");
     if (val < MIN) return toast.error(`Minimum stake is $${MIN}`);
     if (val > MAX) return toast.error(`Maximum is $${MAX}/day`);
     if (val % 10 !== 0) return toast.error("Amount must be in multiples of $10");
     if (!agreed) return toast.error("Please agree to the stake terms first");
-    toast("Staking goes live in the next module");
+    setBusy(true);
+    try {
+      await activateId(val);
+      setAgreed(false);
+      loadBalance();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Staking failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -54,7 +85,7 @@ export default function StakePage() {
           <Wallet size={16} className="text-[#34D07A]" /> Available Wallet Balance
         </span>
         <span data-testid="stake-wallet-balance" className="text-lg font-bold text-white">
-          0 <span className="text-[#D6C51E]">USDT</span>
+          {walletUsdt === null ? "—" : money(walletUsdt)} <span className="text-[#D6C51E]">USDT</span>
         </span>
       </div>
 
@@ -144,10 +175,10 @@ export default function StakePage() {
       <button
         data-testid="stake-submit-btn"
         onClick={stake}
-        disabled={!agreed || val < MIN}
+        disabled={!agreed || val < MIN || busy}
         className="mt-1 h-12 w-full rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#D6C51E] text-base font-bold text-black transition-all active:scale-[0.98] shadow-[0_0_18px_rgba(10,168,79,0.45)] disabled:opacity-40 disabled:shadow-none"
       >
-        Stake ${whole(val)}
+        {busy ? "Staking…" : `Stake $${whole(val)}`}
       </button>
 
       {/* Stake participation history */}

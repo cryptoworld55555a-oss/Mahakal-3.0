@@ -484,3 +484,10 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - Verified: placement test passed (L1->sponsor left, R1->sponsor right, L2->spillover to L1's left). Backend+frontend compile 200.
 - NOTE: existing 3 users registered before this have no binary_side. New registrations via left/right links populate correctly. To test binary: register downlines using left/right links.
 - PENDING DEPLOY: server.py + WalletContext.jsx + MyTeamPage.jsx -> git pull + restart backend + frontend yarn build. (Also includes earlier pending: PoolsPage.jsx $0.50 + monthly $0.10.)
+
+## ✅ STAKE BUTTON WIRED + REAL USDT BALANCE + TITAN BRANDING (2026-06)
+- USDT balance: StakePage now reads REAL on-chain wallet USDT via ethers.JsonRpcProvider + USDT.balanceOf(address). Was hardcoded "0".
+- Stake button: was placeholder toast("Staking goes live in next module"). Now calls context.activateId(val) -> /activate (OFF-CHAIN simulation) -> activates ID, updates pools, refreshes balance. Busy state + error handling added.
+- ⚠️ IMPORTANT MOCKED: staking is OFF-CHAIN (/activate simulation). It does NOT actually move real USDT on-chain or buy TTN on PancakeSwap. Wallet USDT shown is REAL but stake doesn't deduct it. REAL on-chain staking (approve USDT + protocol.stake + PancakeSwap 60% buy) is the NEXT integration (needs contract ABI + approve flow + tx handling).
+- Branding: index.html title/desc/OG -> TITAN Protocol. Removed emergent-main.js badge + posthog analytics (ap.emergent.sh). og:image = ttn-logo-256.png. Sponsor address truncated in MyTeamPage.
+- PENDING DEPLOY: StakePage.jsx + index.html + MyTeamPage.jsx -> git pull + frontend yarn build (backend restart safe).
