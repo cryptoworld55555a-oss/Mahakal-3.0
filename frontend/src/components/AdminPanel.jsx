@@ -5,7 +5,7 @@ import {
   Ban, CheckCircle2, UploadCloud, Crown, Copy, Loader2,
 } from "lucide-react";
 import {
-  adminOverview, adminUsers, buildRewardTree,
+  adminOverview, adminUsers, buildRewardTree, getRootStatus,
 } from "@/lib/api";
 import {
   blockUserOnChain, unblockUserOnChain, pauseOnChain, unpauseOnChain,
@@ -35,6 +35,11 @@ export default function AdminPanel() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
   const [newRoot, setNewRoot] = useState(null);
+  const [status, setStatus] = useState(null); // {backend_root, onchain_root, in_sync, onchain_set}
+
+  const loadStatus = useCallback(async () => {
+    try { setStatus(await getRootStatus()); } catch (e) { /* ignore */ }
+  }, []);
 
   const loadOverview = useCallback(async () => {
     try { setOv(await adminOverview()); } catch (e) { toast.error("Overview load failed"); }
@@ -45,7 +50,7 @@ export default function AdminPanel() {
     catch (e) { toast.error("Users load failed"); }
   }, []);
 
-  useEffect(() => { loadOverview(); loadUsers(); }, [loadOverview, loadUsers]);
+  useEffect(() => { loadOverview(); loadUsers(); loadStatus(); }, [loadOverview, loadUsers, loadStatus]);
 
   const connect = async () => {
     try {
@@ -64,13 +69,30 @@ export default function AdminPanel() {
 
   const doBuild = async () => {
     const d = await run("build", buildRewardTree, "Reward engine ran");
-    if (d) { setNewRoot(d.root); await loadOverview(); await loadUsers(q); }
+    if (d) { setNewRoot(d.root); await loadOverview(); await loadUsers(q); await loadStatus(); }
   };
   const doPostRoot = async () => {
     const root = newRoot || ov?.latest_root;
     if (!root) return toast.error("No root to post. Run engine first.");
     const h = await run("post", () => postMerkleRootOnChain(root), "Root posted on-chain");
-    if (h) toast.success(`tx ${short(h)}`);
+    if (h) { toast.success(`tx ${short(h)}`); setTimeout(loadStatus, 4000); }
+  };
+  // 1-click: rebuild the reward tree AND post the fresh root on-chain so proofs always match.
+  const doSync = async () => {
+    if (needWallet()) return;
+    setBusy("sync");
+    try {
+      const d = await buildRewardTree();
+      const root = d?.root;
+      if (!root) throw new Error("Engine produced no root");
+      setNewRoot(root);
+      const h = await postMerkleRootOnChain(root);
+      toast.success(`Rewards synced on-chain · tx ${short(h)}`);
+      await loadOverview(); await loadUsers(q);
+      setTimeout(loadStatus, 4000);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || e?.shortMessage || e?.message || "Sync failed");
+    } finally { setBusy(""); }
   };
   const needWallet = () => { if (!admin) { toast.error("Connect admin wallet first"); return true; } return false; };
 
@@ -109,7 +131,7 @@ export default function AdminPanel() {
             </div>
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight">TITAN Admin</h1>
-              <p className="text-xs text-white/50">Reward engine · security · Merkle roots · BSC Testnet</p>
+              <p className="text-xs text-white/50">Reward engine · security · Merkle roots · BSC Mainnet</p>
             </div>
           </div>
           <button
@@ -139,14 +161,29 @@ export default function AdminPanel() {
               Walk the referral + binary tree, compute every user's cumulative rewards, build a Merkle root,
               then post it on-chain. Users claim their own leaf.
             </p>
+
+            {/* Sync status: claims ONLY work when the on-chain root matches the backend root. */}
+            <div data-testid="admin-sync-status" className={`mt-3 flex items-center justify-between rounded-xl border p-3 text-xs ${status?.in_sync ? "border-[#0AA84F]/40 bg-[#0AA84F]/10" : "border-red-500/40 bg-red-500/10"}`}>
+              <span className="font-semibold">
+                {status == null ? "Checking on-chain root…"
+                  : status.in_sync ? "✅ On-chain root IN SYNC — users can claim"
+                  : status.onchain_set ? "⚠️ On-chain root is STALE — click Sync so users can claim"
+                  : "⛔ No root posted on-chain yet — click Sync to enable claims"}
+              </span>
+            </div>
+
             <div className="mt-4 flex flex-wrap gap-2">
+              <button data-testid="admin-sync-btn" onClick={doSync} disabled={busy === "sync"}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0AA84F] via-[#65B82E] to-[#FFA000] px-4 py-2.5 text-sm font-bold text-black disabled:opacity-60">
+                {busy === "sync" ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />} Sync Rewards On-Chain (Run + Post)
+              </button>
               <button data-testid="admin-run-engine-btn" onClick={doBuild} disabled={busy === "build"}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0AA84F] to-[#0C8F45] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-                {busy === "build" ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Run Reward Engine
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+                {busy === "build" ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Run Engine only
               </button>
               <button data-testid="admin-post-root-btn" onClick={doPostRoot} disabled={busy === "post"}
                 className="inline-flex items-center gap-2 rounded-xl border border-[#FFA000]/40 bg-[#FFA000]/15 px-4 py-2.5 text-sm font-semibold text-[#FFC24B] disabled:opacity-60">
-                {busy === "post" ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />} Post Root On-chain
+                {busy === "post" ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />} Post Root only
               </button>
             </div>
             <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3">

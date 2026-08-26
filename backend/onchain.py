@@ -54,6 +54,25 @@ def balance_of(wallet: str) -> float:
         return 0.0
 
 
+SEL_MERKLE_ROOT = '0x2eb4a7ab'  # merkleRoot()
+
+
+def get_merkle_root() -> str:
+    """Read the merkleRoot currently posted on the TitanProtocol contract (bytes32 hex).
+    Returns the zero hash if unset or on error."""
+    proto = os.environ.get('MAIN_PROTOCOL_ADDRESS', '0x0000000000000000000000000000000000000000')
+    zero = '0x' + '0' * 64
+    if proto.lower() == '0x0000000000000000000000000000000000000000':
+        return zero
+    try:
+        raw = _eth_call(proto, SEL_MERKLE_ROOT)
+        if not raw or raw == '0x':
+            return zero
+        return '0x' + raw[2:].rjust(64, '0')[-64:]
+    except Exception:
+        return zero
+
+
 def _read_pool():
     TOKEN = _token_address()
     if TOKEN.lower() == '0x0000000000000000000000000000000000000000':

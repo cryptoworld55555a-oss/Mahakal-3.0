@@ -734,6 +734,26 @@ async def reward_merkle_latest():
     return {"root": doc["root"], "leaf_count": doc.get("leaf_count", 0), "created_at": doc.get("created_at")}
 
 
+@api_router.get("/reward/root-status")
+async def reward_root_status():
+    """Compare the backend's current reward root (what user proofs are built against) with the
+    root actually posted on the TitanProtocol contract. If they differ, claims will revert with
+    'no root'/'bad proof' — the owner must Post Root On-chain from /admin."""
+    snap = await db.reward_snapshots.find_one({"_id": "latest"}) or {}
+    backend_root = snap.get("root")
+    leaf_count = snap.get("leaf_count", 0)
+    onchain_root = onchain.get_merkle_root()
+    zero = "0x" + "0" * 64
+    in_sync = bool(backend_root) and onchain_root.lower() == str(backend_root).lower()
+    return {
+        "backend_root": backend_root,
+        "onchain_root": onchain_root,
+        "onchain_set": onchain_root.lower() != zero,
+        "in_sync": in_sync,
+        "leaf_count": leaf_count,
+    }
+
+
 async def _load_network():
     """Read the real referral network from the DB into tree_engine input shape."""
     users = []

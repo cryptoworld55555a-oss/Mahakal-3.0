@@ -531,3 +531,14 @@ Hardhat unit suite: 13/13 pass. No frontend/backend changes needed (claim/stake/
 - VERIFIED (preview, 2 valid test wallets A root+B direct, both $50, daily pool $10): before close -> qualified:true but claim locked settled=0, merkle leaf has NO cat 2. After forced close -> A.settled_daily=$9 (10*0.9), daily pool reset 0, monthly pool +$1, merkle leaf gains cat 2 (on-chain claimable), settlement record {pool_total 10, qualifiers 1}. Idempotent: repeat calls keep settled=$9 (no double-credit).
 - CRON on VPS (settles cycles even with no traffic): `* * * * * curl -s -X POST http://127.0.0.1:8001/api/reward/settle-due` (ADMIN_API_KEY not set -> no header needed; if set later, add -H "x-admin-key: KEY").
 - PENDING DEPLOY: server.py + PoolsPage.jsx -> git push -> VPS git pull + restart titan-backend + frontend yarn build + add cron.
+
+## 🔴 ROOT CAUSE: CLAIM "missing revert data" = merkleRoot NOT posted on-chain (2026-08-26)
+- USER BUG (video): Mining page "Claim Reward" ($11.25) -> red error "missing revert data". TTN wallet me nahi aata.
+- DIAGNOSIS (mainnet reads): TitanProtocol(0x5A48..EEFD).merkleRoot() = 0x000...0 (BLANK). _claim() reverts at require(merkleRoot != 0, "no root"); public RPC strips reason -> ethers shows "missing revert data". So claim NEVER worked on mainnet — owner never posted a root.
+- owner()==rootPoster()==0xcb64a7c9895a3807f23a23c25e0db138b3a3e0cd. Protocol holds 63 USDT + 186,999 TTN (claim buys TTN from Pancake using protocol USDT — so only ~$63 total claims possible until more USDT accrues from activations).
+- FIX (code): admin tooling already existed (/admin: Run Engine + Post Root via postMerkleRootOnChain->setMerkleRoot). Made it foolproof:
+  - onchain.py get_merkle_root() (SEL 0x2eb4a7ab) reads posted root.
+  - server.py GET /reward/root-status -> {backend_root, onchain_root, onchain_set, in_sync}.
+  - AdminPanel.jsx: live sync-status banner (green in-sync / red stale/none) + ONE-CLICK "Sync Rewards On-Chain (Run + Post)" (doSync: buildRewardTree then postMerkleRootOnChain with the fresh root so proofs always match). Fixed stale "BSC Testnet"->"BSC Mainnet".
+- CHURN WARNING: root changes on every /activate (auto-rebuild) and every pool settlement. Owner MUST click Sync again after new stakes/settlements or claims fail (banner turns red). Future: automate root posting via rootPoster hot key (needs NEW secured key — shared mnemonic compromised).
+- USER ACTION: deploy -> titandefi.in/admin -> connect owner wallet -> click "Sync Rewards On-Chain" -> claims work.

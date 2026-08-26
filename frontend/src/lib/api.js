@@ -24,6 +24,7 @@ export const adminUsers = (params) => api.get("/admin/users", { params }).then((
 export const adminUserDetail = (address) => api.get(`/admin/user/${address}`).then((r) => r.data);
 export const getRewardUser = (address) => api.get(`/reward/tree/user/${address}`).then((r) => r.data);
 export const buildRewardTree = () => api.post("/reward/tree/build").then((r) => r.data);
+export const getRootStatus = () => api.get("/reward/root-status").then((r) => r.data);
 export const seedDemoNetwork = () => api.post("/reward/tree/seed-demo").then((r) => r.data);
 
 export default api;
